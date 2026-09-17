@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "RakshaCast",
+    "slug": "rakshacast",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "com.rakshacast.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a192f"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ab8be812-89c1-4cda-b44e-a01be11c29e5"
+      }
+    }
+  }
+}

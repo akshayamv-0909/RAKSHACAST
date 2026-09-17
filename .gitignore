@@ -1,0 +1,11 @@
+node_modules/
+.expo/
+dist/
+web-build/
+.env.local
+.env
+
+
+rakshacast.db
+server/rakshacast.db
+scratch/
