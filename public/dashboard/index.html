@@ -390,15 +390,12 @@
             
             <!-- The Smart Inbox -->
             <div class="panel">
-                <div class="panel-header">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="inbox" class="w-5 h-5 text-ndrf-primary"></i>
-                        <span>Smart Triage Inbox</span>
+                <div class="bg-blue-950 text-white p-3 rounded-t shadow flex items-center justify-between border-b border-blue-900 sticky top-0 z-10">
+                    <div>
+                        <h2 class="text-sm font-bold">NDRF Incident Command Center</h2>
+                        <p class="text-[10px] text-blue-200">10th Battalion &ndash; Haridwar-Rishikesh Sector</p>
                     </div>
-                    <div class="flex bg-slate-200 rounded p-1 gap-1">
-                        <button class="px-3 py-1 text-[10px] font-bold rounded bg-white text-ndrf-navy shadow-sm">Critical First</button>
-                        <button class="px-3 py-1 text-[10px] font-bold rounded text-slate-500 hover:bg-slate-300">Newest</button>
-                    </div>
+                    <span class="px-2 py-0.5 rounded text-[9px] bg-red-600 text-white font-black animate-pulse">LIVE INCIDENT ROOM</span>
                 </div>
                 
                 <!-- Bulk Action Bar -->
@@ -414,7 +411,7 @@
                 </div>
                 
                 <!-- Inbox List -->
-                <div class="inbox-list" id="inbox-list">
+                <div class="inbox-list space-y-3 text-xs p-3 bg-slate-100 h-full" id="inbox-list">
                     <!-- Cards injected by JS -->
                 </div>
             </div>

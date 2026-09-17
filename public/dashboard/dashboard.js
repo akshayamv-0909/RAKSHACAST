@@ -191,56 +191,48 @@ function renderSmartInbox() {
     
     sorted.forEach(sos => {
         const el = document.createElement("div");
-        const isSelected = STATE.selectedIds.has(sos.id);
         const t = sos.submittedAt || sos.timestamp;
         const timeStr = t ? new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "Just now";
+        const loc = sos.locationDesc || (sos.lat ? `${sos.lat.toFixed(4)}, ${sos.lng.toFixed(4)}` : "Unknown Area");
         
-        el.className = `inbox-item priority-${sos.priority} ${isSelected ? 'selected' : ''}`;
-        el.id = `inbox-${sos.id}`;
+        el.className = "p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-2 cursor-pointer hover:border-blue-400 transition-colors";
+        el.onclick = () => selectIncident(sos.id);
         
-        let statusBadge = `<span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold border border-slate-200">NEW</span>`;
-        if(sos.status === 'DISPATCHED') statusBadge = `<span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px] font-bold border border-blue-200">DISPATCHED</span>`;
-        if(sos.status === 'RESOLVED') statusBadge = `<span class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[9px] font-bold border border-green-200">RESOLVED</span>`;
+        let dispatchBtn = `<button onclick="event.stopPropagation(); assignRescueTeam('${sos.id}')" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow active:scale-95 transition">
+            Dispatch Rescue Team
+        </button>`;
         
+        if (sos.status === 'DISPATCHED' || sos.status === 'TEAM_EN_ROUTE') {
+            dispatchBtn = `<span class="font-bold text-emerald-700">✔️ EN ROUTE</span>`;
+        } else if (sos.status === 'RESOLVED') {
+            dispatchBtn = `<span class="font-bold text-slate-500">✔️ RESOLVED</span>`;
+        }
+
         el.innerHTML = `
-            <div class="flex-shrink-0" onclick="toggleSelection(event, '${sos.id}')">
-                <div class="checkbox-custom flex items-center justify-center ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-white'}">
-                    ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="font-extrabold text-slate-900 text-sm">${sos.userName || 'Citizen'}</span>
+                    <span class="px-2 py-0.5 rounded text-[9px] font-mono font-black ${sos.priority === 'CRITICAL' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}">TRG ${Math.floor(sos.triageScore)}</span>
                 </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-100 text-slate-600">${sos.id}</span>
             </div>
-            <div class="flex-1" onclick="selectIncident('${sos.id}')">
-                <div class="flex justify-between items-start mb-2">
-                    <div class="flex flex-col">
-                        <div class="flex items-center gap-2">
-                            <span class="font-black text-slate-800 uppercase tracking-wide text-sm">${sos.userName || 'Citizen'}</span>
-                            ${statusBadge}
-                        </div>
-                        <span class="text-[9px] text-slate-400 font-mono mt-0.5">${timeStr} &bull; ${sos.id}</span>
-                    </div>
-                    <span class="text-[10px] font-mono font-black px-2 py-0.5 rounded ${sos.priority==='CRITICAL'?'bg-red-100 text-red-600 border border-red-200':'bg-amber-100 text-amber-600 border border-amber-200'}">TRG ${Math.floor(sos.triageScore)}</span>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 mb-2 mt-1">
-                    <div class="flex items-center gap-1.5 overflow-hidden">
-                        <i data-lucide="map-pin" class="w-3 h-3 text-blue-500 shrink-0"></i> 
-                        <span class="font-medium truncate">${sos.locationDesc || 'Unknown Area'}</span>
-                    </div>
-                    <div class="flex items-center gap-1.5 overflow-hidden">
-                        <i data-lucide="triangle-alert" class="w-3 h-3 text-red-500 shrink-0"></i> 
-                        <span class="font-bold text-red-600 truncate">${sos.emergencyType || 'Emergency'}</span>
-                    </div>
-                </div>
-                
-                <div class="bg-slate-50 p-2 rounded-md border border-slate-100 flex gap-2">
-                    <span class="text-[9px] font-bold text-slate-400 uppercase shrink-0 mt-0.5">MSG:</span>
-                    <p class="text-[10px] text-slate-600 italic leading-tight truncate">"${sos.message || 'No additional details provided.'}"</p>
-                </div>
+            <p class="text-[11px] text-slate-700 font-medium flex items-center space-x-1">
+                <span>📍 ${loc}</span>
+                <span class="text-slate-400">•</span>
+                <span>👥 ${sos.peopleCount || 1} Persons</span>
+                <span class="text-slate-400">•</span>
+                <span class="text-blue-600 font-mono">${timeStr}</span>
+            </p>
+            <p class="text-[11px] text-slate-900 bg-slate-50 p-2 rounded border border-slate-200 font-medium">"${sos.message || 'Help requested.'}"</p>
+            <div class="flex items-center justify-between pt-1 text-[10px] text-slate-500 border-t border-slate-100 mt-2">
+                <span>Assigned: <b class="${sos.assignedTeam && sos.assignedTeam !== 'Pending' ? 'text-blue-900' : 'text-slate-400'}">${sos.assignedTeam || 'Pending'}</b></span>
+                ${dispatchBtn}
             </div>
         `;
         inboxList.appendChild(el);
     });
     lucide.createIcons();
-    updateBulkActionBar();
+}    updateBulkActionBar();
 }
 
 window.toggleSelection = function(e, id) {
