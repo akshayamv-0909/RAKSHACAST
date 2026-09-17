@@ -268,7 +268,7 @@ function renderSmartInbox() {
         inboxList.appendChild(el);
     });
     lucide.createIcons();
-}    updateBulkActionBar();
+    updateBulkActionBar();
 }
 
 window.toggleSelection = function(e, id) {
