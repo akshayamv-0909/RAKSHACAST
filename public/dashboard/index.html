@@ -46,7 +46,7 @@
         #page-map.active { display: block; padding: 0; }
         
         /* Command Center Grid (Idea 1 & 2) */
-        #command-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; height: 100%; min-height: 0; }
+        #command-grid { display: grid; grid-template-columns: 320px 1fr 340px; gap: 1.5rem; height: 100%; min-height: 0; }
         .panel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .panel-header { background: #f1f5f9; padding: 1rem 1.25rem; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
         
@@ -386,9 +386,72 @@
 
     <!-- PAGE 5: Command Center (Smart Triage Inbox) -->
     <div id="page-command" class="page-content h-full">
-        <div id="command-grid">
-            
-            <!-- The Smart Inbox -->
+          <div id="command-grid">
+              
+              <!-- Left Panel: Commander Profile & Broadcaster -->
+              <div class="flex flex-col gap-4 h-full overflow-y-auto">
+                  <!-- Commander Profile -->
+                  <div class="panel p-4 bg-slate-900 text-white rounded-2xl shadow-lg border-2 border-slate-700">
+                      <div class="flex items-center gap-3 border-b border-slate-700 pb-3 mb-3">
+                          <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center border-2 border-white shadow-md">
+                              <i data-lucide="medal" class="w-6 h-6 text-white"></i>
+                          </div>
+                          <div>
+                              <h3 class="font-bold text-sm">Commander Vikram Rathore</h3>
+                              <p class="text-[10px] text-slate-300">NDRF-OFFICER-1092 &bull; Incident Commander</p>
+                          </div>
+                          <div class="ml-auto bg-emerald-900 text-emerald-400 text-[9px] font-black px-2 py-1 rounded border border-emerald-700">
+                              ACTIVE ON-DUTY
+                          </div>
+                      </div>
+                      <div class="grid grid-cols-2 gap-2 text-xs">
+                          <div class="bg-slate-800 p-2 rounded border border-slate-700">
+                              <p class="text-[9px] text-slate-400 uppercase font-bold mb-1">BATTALION UNIT</p>
+                              <p class="font-bold text-blue-300">10th NDRF Battalion</p>
+                              <p class="text-[9px] text-slate-400">Hyderabad Ops Sector</p>
+                          </div>
+                          <div class="bg-slate-800 p-2 rounded border border-slate-700">
+                              <p class="text-[9px] text-slate-400 uppercase font-bold mb-1">ACTIVE ASSETS</p>
+                              <p class="font-bold text-white">6 Rescue Boats</p>
+                              <p class="text-[9px] text-emerald-400 font-bold">Live GPS Tracking ON</p>
+                          </div>
+                      </div>
+                  </div>
+
+                  <!-- Broadcast Official Warning -->
+                  <div class="panel flex-1 bg-white rounded-2xl shadow-lg border border-red-200 overflow-hidden">
+                      <div class="bg-red-950 text-white p-3 flex items-center justify-between border-b-2 border-red-600">
+                          <div class="flex items-center gap-2">
+                              <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                              <h3 class="font-black text-xs uppercase tracking-wide">Broadcast Official Warning</h3>
+                          </div>
+                          <span class="text-[8px] font-mono text-red-300">Live Multi-Device Bus</span>
+                      </div>
+                      <div class="p-4 space-y-3">
+                          <div>
+                              <label class="block text-[9px] font-black text-slate-800 uppercase mb-1">Alert Severity Level</label>
+                              <select id="broadcast-level" class="w-full text-xs p-2 rounded bg-slate-900 text-white border border-slate-700 font-bold outline-none">
+                                  <option value="CRITICAL">🔴 RED CRITICAL (Immediate Evacuation)</option>
+                                  <option value="WARNING">🟠 ORANGE WARNING (Be Prepared)</option>
+                                  <option value="INFO">🔵 BLUE ADVISORY (Monitor Updates)</option>
+                              </select>
+                          </div>
+                          <div>
+                              <label class="block text-[9px] font-black text-slate-800 uppercase mb-1">Alert Headline / Title</label>
+                              <input type="text" id="broadcast-title" value="RED CRITICAL: NOWCAST FLASH FLOOD & CLOUDBURST" class="w-full text-xs p-2 rounded bg-slate-900 text-white border border-slate-700 font-bold outline-none">
+                          </div>
+                          <div>
+                              <label class="block text-[9px] font-black text-slate-800 uppercase mb-1">Actionable Instructions</label>
+                              <textarea id="broadcast-msg" rows="3" class="w-full text-xs p-2 rounded bg-slate-900 text-white border border-slate-700 font-bold outline-none resize-none">Immediate mandatory evacuation along designated high-ridge routes. Extreme downpour core active.</textarea>
+                          </div>
+                          <button onclick="sendBroadcast()" class="w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[11px] py-3 rounded-lg shadow-md transition active:scale-95 flex items-center justify-center gap-2">
+                              <i data-lucide="radio" class="w-4 h-4"></i> Transmit Live Alert
+                          </button>
+                      </div>
+                  </div>
+              </div>
+
+              <!-- The Smart Inbox -->
             <div class="panel">
                 <div class="bg-blue-950 text-white p-3 rounded-t shadow flex items-center justify-between border-b border-blue-900 sticky top-0 z-10">
                     <div>

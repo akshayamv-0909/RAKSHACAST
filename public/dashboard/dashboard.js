@@ -63,12 +63,48 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function initMap() {
-    STATE.map = L.map('map', { zoomControl: false }).setView([17.4207, 78.3508], 15);
+    STATE.map = L.map('map', { zoomControl: false }).setView([17.4207, 78.3508], 12);
     L.control.zoom({ position: 'bottomright' }).addTo(STATE.map);
     
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(STATE.map);
+    });
+    
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    });
+    
+    // Add default street layer
+    satelliteLayer.addTo(STATE.map);
+    
+    // Initialize Weather Radar Group
+    const radarLayer = L.layerGroup();
+    
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(res => res.json())
+        .then(data => {
+            if (data.radar && data.radar.past && data.radar.past.length > 0) {
+                const latestTs = data.radar.past[data.radar.past.length - 1].time;
+                L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${latestTs}/256/{z}/{x}/{y}/2/1_1.png`, {
+                    opacity: 0.7,
+                    zIndex: 1000
+                }).addTo(radarLayer);
+                console.log("RainViewer Radar loaded for timestamp:", latestTs);
+            }
+        })
+        .catch(e => console.error("RainViewer load failed:", e));
+
+    const baseMaps = {
+        "ISRO Bhuvan / Street View": streetLayer,
+        "INSAT / CartoDEM (Satellite)": satelliteLayer
+    };
+
+    const overlayMaps = {
+        "🔴 LIVE Doppler Weather Radar (RainViewer)": radarLayer
+    };
+
+    L.control.layers(baseMaps, overlayMaps, {position: 'topright'}).addTo(STATE.map);
+    
 
     drawHazardZones();
 
@@ -483,3 +519,27 @@ socket.on("incident_updated", (sos) => {
 socket.on("mass_alert", (alert) => {
     pushAlert(`MASS ALERT ISSUED: ${alert.title}`, alert.message, "error");
 });
+
+
+// --- BROADCAST FEATURE ---
+async function sendBroadcast() {
+    const level = document.getElementById('broadcast-level').value;
+    const title = document.getElementById('broadcast-title').value;
+    const msg = document.getElementById('broadcast-msg').value;
+    
+    try {
+        const res = await fetch('/api/admin/alert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: level, message: msg, title: title })
+        });
+        if (res.ok) {
+            pushAlert('Broadcast Sent', 'Live alert transmitted to all devices on the network.', 'success');
+            document.getElementById('broadcast-msg').value = '';
+        } else {
+            pushAlert('Broadcast Failed', 'Server rejected the broadcast.', 'critical');
+        }
+    } catch (err) {
+        pushAlert('Broadcast Error', err.message, 'critical');
+    }
+}
