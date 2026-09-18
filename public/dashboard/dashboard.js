@@ -37,6 +37,7 @@ socket.on("disconnect", () => {
 
 // Page Routing
 window.switchPage = function(pageId) {
+    if (pageId === 'map' || pageId === 'home') pageId = 'command';
     document.querySelectorAll('.page-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
     
@@ -199,8 +200,8 @@ function renderMapMarkers() {
         marker.bindPopup(`
             <div class="font-sans min-w-[150px]">
                 <h3 class="font-black text-red-600 mb-1 text-sm">${sos.emergencyType || 'SOS'}</h3>
-                <p class="text-xs text-slate-700 font-bold mb-1">${sos.userName || 'Citizen'} (${sos.peopleCount} Trapped)</p>
-                <p class="text-[10px] text-slate-500 mb-3 leading-tight">${sos.locationDesc}</p>
+                <p class="text-xs text-[#9AA1AA] font-bold mb-1">${sos.userName || 'Citizen'} (${sos.peopleCount} Trapped)</p>
+                <p class="text-[10px] text-[#7A818A] mb-3 leading-tight">${sos.locationDesc}</p>
                 <button onclick="switchPage('command'); selectIncident('${sos.id}');" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-[10px] font-bold transition">DISPATCH UNIT &rarr;</button>
             </div>
         `);
@@ -231,7 +232,7 @@ function renderSmartInbox() {
         const timeStr = t ? new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "Just now";
         const loc = sos.locationDesc || (sos.lat ? `${sos.lat.toFixed(4)}, ${sos.lng.toFixed(4)}` : "Unknown Area");
         
-        el.className = "p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-2 cursor-pointer hover:border-blue-400 transition-colors";
+        el.className = "p-3 bg-[#181C21] rounded border border-[#30363D] shadow-xs space-y-2 cursor-pointer hover:border-blue-400 transition-colors";
         el.onclick = () => selectIncident(sos.id);
         
         let dispatchBtn = `<button onclick="event.stopPropagation(); assignRescueTeam('${sos.id}')" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow active:scale-95 transition">
@@ -241,27 +242,27 @@ function renderSmartInbox() {
         if (sos.status === 'DISPATCHED' || sos.status === 'TEAM_EN_ROUTE') {
             dispatchBtn = `<span class="font-bold text-emerald-700">✔️ EN ROUTE</span>`;
         } else if (sos.status === 'RESOLVED') {
-            dispatchBtn = `<span class="font-bold text-slate-500">✔️ RESOLVED</span>`;
+            dispatchBtn = `<span class="font-bold text-[#7A818A]">✔️ RESOLVED</span>`;
         }
 
         el.innerHTML = `
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
-                    <span class="font-extrabold text-slate-900 text-sm">${sos.userName || 'Citizen'}</span>
-                    <span class="px-2 py-0.5 rounded text-[9px] font-mono font-black ${sos.priority === 'CRITICAL' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}">TRG ${Math.floor(sos.triageScore)}</span>
+                    <span class="font-extrabold text-[#E8EAED] text-sm">${sos.userName || 'Citizen'}</span>
+                    <span class="px-2 py-0.5 rounded text-[9px] font-mono font-black ${sos.priority === 'CRITICAL' ? 'bg-[#FF3B30]/20 text-[#FF3B30]' : 'bg-[#FF9800]/20 text-[#FF9800]'}">TRG ${Math.floor(sos.triageScore)}</span>
                 </div>
-                <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-100 text-slate-600">${sos.id}</span>
+                <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-[#080A0D] text-[#9AA1AA]">${sos.id}</span>
             </div>
-            <p class="text-[11px] text-slate-700 font-medium flex items-center space-x-1">
+            <p class="text-[11px] text-[#9AA1AA] font-medium flex items-center space-x-1">
                 <span>📍 ${loc}</span>
-                <span class="text-slate-400">•</span>
+                <span class="text-[#7A818A]">•</span>
                 <span>👥 ${sos.peopleCount || 1} Persons</span>
-                <span class="text-slate-400">•</span>
+                <span class="text-[#7A818A]">•</span>
                 <span class="text-blue-600 font-mono">${timeStr}</span>
             </p>
-            <p class="text-[11px] text-slate-900 bg-slate-50 p-2 rounded border border-slate-200 font-medium">"${sos.message || 'Help requested.'}"</p>
-            <div class="flex items-center justify-between pt-1 text-[10px] text-slate-500 border-t border-slate-100 mt-2">
-                <span>Assigned: <b class="${sos.assignedTeam && sos.assignedTeam !== 'Pending' ? 'text-blue-900' : 'text-slate-400'}">${sos.assignedTeam || 'Pending'}</b></span>
+            <p class="text-[11px] text-[#E8EAED] bg-[#080A0D] p-2 rounded border border-[#30363D] font-medium">"${sos.message || 'Help requested.'}"</p>
+            <div class="flex items-center justify-between pt-1 text-[10px] text-[#7A818A] border-t border-slate-100 mt-2">
+                <span>Assigned: <b class="${sos.assignedTeam && sos.assignedTeam !== 'Pending' ? 'text-[#00A8E8]' : 'text-[#7A818A]'}">${sos.assignedTeam || 'Pending'}</b></span>
                 ${dispatchBtn}
             </div>
         `;
@@ -323,49 +324,49 @@ window.selectIncident = function(idOrObj) {
 
     incidentDetailsPanel.innerHTML = `
         <div class="space-y-4 text-sm h-full flex flex-col">
-            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
-                <h2 class="text-xl font-black text-slate-800">${sos.id}</h2>
+            <div class="flex items-center justify-between border-b border-[#30363D] pb-3">
+                <h2 class="text-xl font-black text-[#E8EAED]">${sos.id}</h2>
                 <span class="px-2 py-1 bg-${sos.priority === 'CRITICAL' ? 'red' : 'amber'}-100 rounded text-xs text-${sos.priority === 'CRITICAL' ? 'red' : 'amber'}-700 font-bold border border-${sos.priority === 'CRITICAL' ? 'red' : 'amber'}-200">${sos.priority}</span>
             </div>
             
             <div>
-                <p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Disaster Type</p>
-                <p class="font-bold text-slate-700">${sos.emergencyType}</p>
+                <p class="text-[10px] text-[#7A818A] font-bold uppercase mb-0.5">Disaster Type</p>
+                <p class="font-bold text-[#9AA1AA]">${sos.emergencyType}</p>
             </div>
             
             <div>
-                <p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Coordinates</p>
-                <div class="flex items-center space-x-2 text-slate-600 bg-slate-100 p-2 rounded border border-slate-200">
+                <p class="text-[10px] text-[#7A818A] font-bold uppercase mb-0.5">Coordinates</p>
+                <div class="flex items-center space-x-2 text-[#9AA1AA] bg-[#080A0D] p-2 rounded border border-[#30363D]">
                     <i data-lucide="map-pin" class="w-4 h-4 text-ndrf-primary"></i>
                     <span class="font-mono text-xs font-bold">${sos.lat.toFixed(4)}, ${sos.lng.toFixed(4)}</span>
                 </div>
-                <p class="text-slate-500 mt-2 text-xs">${sos.locationDesc}</p>
+                <p class="text-[#7A818A] mt-2 text-xs">${sos.locationDesc}</p>
             </div>
             
             <div class="grid grid-cols-2 gap-2 mt-2">
-                <div class="bg-white border border-slate-200 p-2 rounded shadow-sm">
-                    <p class="text-[10px] text-slate-400 font-bold uppercase">People</p>
-                    <p class="font-black text-lg text-slate-700">${sos.peopleCount}</p>
+                <div class="bg-[#181C21] border border-[#30363D] p-2 rounded shadow-sm">
+                    <p class="text-[10px] text-[#7A818A] font-bold uppercase">People</p>
+                    <p class="font-black text-lg text-[#9AA1AA]">${sos.peopleCount}</p>
                 </div>
-                <div class="bg-white border border-slate-200 p-2 rounded shadow-sm flex flex-col gap-1">
-                    <p class="text-[10px] text-slate-400 font-bold uppercase">Flags</p>
+                <div class="bg-[#181C21] border border-[#30363D] p-2 rounded shadow-sm flex flex-col gap-1">
+                    <p class="text-[10px] text-[#7A818A] font-bold uppercase">Flags</p>
                     <div class="flex flex-wrap gap-1">
-                        ${sos.hasMedical ? '<span class="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[9px] font-bold">Medical</span>' : ''}
+                        ${sos.hasMedical ? '<span class="px-1.5 py-0.5 bg-[#FF3B30]/20 text-red-700 rounded text-[9px] font-bold">Medical</span>' : ''}
                         ${sos.hasInfant ? '<span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px] font-bold">Infant</span>' : ''}
-                        ${sos.hasElderly ? '<span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">Elderly</span>' : ''}
-                        ${(!sos.hasMedical && !sos.hasInfant && !sos.hasElderly) ? '<span class="text-xs text-slate-400">None</span>' : ''}
+                        ${sos.hasElderly ? '<span class="px-1.5 py-0.5 bg-[#FF9800]/20 text-amber-700 rounded text-[9px] font-bold">Elderly</span>' : ''}
+                        ${(!sos.hasMedical && !sos.hasInfant && !sos.hasElderly) ? '<span class="text-xs text-[#7A818A]">None</span>' : ''}
                     </div>
                 </div>
             </div>
             
             <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 mt-2 flex-1">
                 <p class="text-[10px] text-blue-400 font-bold uppercase mb-1">Citizen Message</p>
-                <p class="text-sm italic text-blue-900 font-medium">"${sos.message}"</p>
+                <p class="text-sm italic text-[#00A8E8] font-medium">"${sos.message}"</p>
             </div>
 
-            <div class="pt-4 border-t border-slate-200 mt-4">
-                <p class="text-[10px] text-slate-400 font-bold uppercase mb-2">Unit Assignment</p>
-                <select id="assign-team-select" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-xs text-slate-700 mb-3 shadow-sm font-bold">
+            <div class="pt-4 border-t border-[#30363D] mt-4">
+                <p class="text-[10px] text-[#7A818A] font-bold uppercase mb-2">Unit Assignment</p>
+                <select id="assign-team-select" class="w-full bg-[#181C21] border border-slate-300 rounded-lg p-2.5 text-xs text-[#9AA1AA] mb-3 shadow-sm font-bold">
                     ${teamOptions}
                 </select>
                 <div class="flex gap-2">
@@ -456,19 +457,19 @@ window.showDashboardToast = function(title, message, sos = null) {
     if (!container) return;
     
     const toast = document.createElement('div');
-    toast.className = 'bg-white border-l-4 border-red-600 rounded-lg shadow-2xl p-4 pointer-events-auto transform transition-all duration-300 translate-x-full opacity-0 flex flex-col gap-1';
+    toast.className = 'bg-[#181C21] border-l-4 border-red-600 rounded-lg shadow-2xl p-4 pointer-events-auto transform transition-all duration-300 translate-x-full opacity-0 flex flex-col gap-1';
     
     let btnHtml = '';
     if (sos && sos.lat && sos.lng) {
-        btnHtml = `<button onclick="switchPage('map'); setTimeout(() => { if(STATE.map) { STATE.map.flyTo([${sos.lat}, ${sos.lng}], 15); STATE.map.invalidateSize(); } }, 300); this.parentElement.remove();" class="mt-2 w-full bg-red-50 hover:bg-red-100 text-red-700 font-bold py-1.5 rounded border border-red-200 text-xs transition flex items-center justify-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> VIEW ON LIVE MAP</button>`;
+        btnHtml = `<button onclick="switchPage('map'); setTimeout(() => { if(STATE.map) { STATE.map.flyTo([${sos.lat}, ${sos.lng}], 15); STATE.map.invalidateSize(); } }, 300); this.parentElement.remove();" class="mt-2 w-full bg-red-50 hover:bg-[#FF3B30]/20 text-red-700 font-bold py-1.5 rounded border border-red-200 text-xs transition flex items-center justify-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> VIEW ON LIVE MAP</button>`;
     }
     
     toast.innerHTML = `
         <div class="flex justify-between items-start">
             <h4 class="font-black text-red-700 text-sm tracking-wide">${title}</h4>
-            <button onclick="this.parentElement.parentElement.remove()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+            <button onclick="this.parentElement.parentElement.remove()" class="text-[#7A818A] hover:text-[#9AA1AA]"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
-        <p class="text-xs text-slate-600 font-medium">${message}</p>
+        <p class="text-xs text-[#9AA1AA] font-medium">${message}</p>
         ${btnHtml}
     `;
     

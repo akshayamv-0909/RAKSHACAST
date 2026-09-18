@@ -3,510 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDRF Web Portal | RakshaCast</title>
-    <!-- Tailwind CSS -->
+    <title>NDRF Operations & Intelligence Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        ndrf: { navy: "#0a192f", blue: "#1e3a8a", primary: "#ea580c", text: "#0f172a", muted: "#64748b", bg: "#f8fafc", border: "#e2e8f0" }
-                    },
-                    fontFamily: { mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"], sans: ["Inter", "sans-serif"] }
-                }
-            }
-        };
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Leaflet CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Socket.IO -->
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
     <style>
-        body { font-family: "Inter", sans-serif; background-color: #f8fafc; color: #0f172a; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
         
-        /* Top Navigation Taskbar with Color Grading */
-        #top-nav { background: linear-gradient(90deg, #0a192f 0%, #1e3a8a 100%); display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem; height: 72px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 50; shrink: 0; }
-        .nav-tabs { display: flex; height: 100%; gap: 0.5rem; }
-        .nav-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0 1.25rem; color: #cbd5e1; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; border-bottom: 4px solid transparent; height: 100%; }
-        .nav-tab:hover { color: #ffffff; background: rgba(255,255,255,0.05); }
-        .nav-tab.active { color: #ea580c; border-bottom-color: #ea580c; background: rgba(255,255,255,0.1); }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #080A0D;
+            color: #E8EAED;
+            overflow: hidden;
+        }
         
-        /* Page Containers */
-        .page-content { flex: 1; display: none; overflow-y: auto; overflow-x: hidden; padding: 1.5rem; }
-        .page-content.active { display: flex; flex-direction: column; }
+        .tech-font { font-family: 'IBM Plex Sans', sans-serif; }
         
-        /* Map Page Specific */
-        #page-map.active { display: block; padding: 0; }
+        .page-content { display: none; }
+        .page-content.active { display: block; }
         
-        /* Command Center Grid (Idea 1 & 2) */
-        #command-grid { display: grid; grid-template-columns: 320px 1fr 340px; gap: 1.5rem; height: 100%; min-height: 0; }
-        .panel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .panel-header { background: #f1f5f9; padding: 1rem 1.25rem; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        /* Unified Command Layout */
+        #unified-dashboard {
+            display: grid;
+            grid-template-columns: 20% 58% 22%;
+            grid-template-rows: 1fr 180px;
+            gap: 0.5rem;
+            height: calc(100vh - 60px);
+            padding: 0.5rem;
+        }
         
-        /* Smart Inbox List */
-        .inbox-list { flex: 1; overflow-y: auto; padding: 0.5rem; background: #f8fafc; }
-        .inbox-item { background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid; padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; display: flex; gap: 1rem; align-items: center; cursor: pointer; transition: all 0.15s; }
-        .inbox-item:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.05); transform: translateY(-1px); }
-        .inbox-item.selected { background: #eff6ff; border-color: #bfdbfe; border-left-color: #3b82f6; }
+        .panel { 
+            background: #111418; 
+            border: 1px solid #30363D; 
+            border-radius: 4px; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
         
-        .priority-CRITICAL { border-left-color: #ef4444; }
-        .priority-HIGH { border-left-color: #f59e0b; }
-        .priority-MEDIUM { border-left-color: #eab308; }
+        .panel-header { 
+            background: #181C21; 
+            padding: 0.5rem 0.75rem; 
+            font-size: 11px; 
+            font-weight: 700; 
+            letter-spacing: 0.08em;
+            text-transform: uppercase; 
+            color: #9AA1AA; 
+            border-bottom: 1px solid #30363D; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1;
+            margin: 4px 0;
+            color: #E8EAED;
+        }
         
-        .checkbox-custom { width: 1.25rem; height: 1.25rem; rounded: 0.25rem; border: 2px solid #cbd5e1; cursor: pointer; }
+        /* Map Overrides for Dark Mode */
+        .leaflet-container { background: #080A0D !important; }
         
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        /* Custom scrollbar for dark theme */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #080A0D; }
+        ::-webkit-scrollbar-thumb { background: #30363D; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4a535e; }
+        
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+        }
+        
+        /* Navigation Tabs */
+        .nav-tab {
+            padding: 0 1rem;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: #9AA1AA;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+        .nav-tab:hover { color: #E8EAED; background: #181C21; }
+        .nav-tab.active { color: #00A8E8; border-bottom-color: #00A8E8; background: #181C21; }
     </style>
 </head>
-<body>
+<body class="h-screen flex flex-col">
 
-    <!-- Top Navigation Taskbar -->
-    <nav id="top-nav">
-        <div class="flex items-center space-x-4">
-            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center font-bold text-ndrf-navy shadow-lg border-2 border-ndrf-primary">
-                🏛️
+    <!-- COMPACT COMMAND CENTER TOOLBAR -->
+    <header class="h-[60px] bg-[#111418] border-b border-[#30363D] flex items-center justify-between px-4 shrink-0">
+        <!-- Identity -->
+        <div class="flex items-center gap-3">
+            <div class="flex items-center justify-center w-8 h-8 bg-[#181C21] border border-[#30363D] rounded">
+                🇮🇳
             </div>
-            <div>
-                <h1 class="text-xl font-black tracking-wider flex items-center gap-2 text-white">
-                    RakshaCast Portal <img src="https://upload.wikimedia.org/wikipedia/en/4/41/Flag_of_India.svg" class="h-4 w-6 rounded-sm shadow-sm" alt="India"> 
-                </h1>
-                <p class="text-[10px] text-blue-200 uppercase font-bold tracking-widest mt-0.5">NDRF Incident Command & Early Warning</p>
+            <div class="flex flex-col justify-center">
+                <h1 class="text-sm font-black tracking-widest text-[#E8EAED] leading-none mb-1">RAKSHACAST <span class="text-[#1976D2]">NDRF</span></h1>
+                <p class="text-[9px] font-bold text-[#9AA1AA] tracking-wide uppercase leading-none">National Disaster Operations & Intelligence Center</p>
             </div>
         </div>
         
-        <div class="nav-tabs">
-            <div class="nav-tab active" onclick="switchPage('home')">
-                <i data-lucide="cloud-lightning" class="w-5 h-5"></i>
-                <span class="hidden sm:inline">Nowcast</span>
-            </div>
-            <div class="nav-tab" onclick="switchPage('map')">
-                <i data-lucide="map" class="w-5 h-5"></i>
-                <span class="hidden sm:inline">Live Map</span>
-            </div>
-            <div class="nav-tab" onclick="switchPage('evacuate')">
-                <i data-lucide="navigation" class="w-5 h-5"></i>
-                <span class="hidden sm:inline">Evacuate</span>
-            </div>
-            <div class="nav-tab" onclick="switchPage('alerts')">
-                <i data-lucide="bell" class="w-5 h-5"></i>
-                <span class="hidden sm:inline">Alerts</span>
-            </div>
-            <div class="nav-tab" onclick="switchPage('command')">
-                <i data-lucide="shield-alert" class="w-5 h-5 text-ndrf-primary"></i>
-                <span class="hidden sm:inline text-white font-bold">Command Center</span>
-            </div>
+        <!-- Navigation -->
+        <div class="flex h-full items-center gap-1">
+            <div class="nav-tab" onclick="switchPage('home')">Nowcast</div>
+            <div class="nav-tab" onclick="switchPage('map')">Live Map</div>
+            <div class="nav-tab" onclick="switchPage('evacuate')">Evacuation</div>
+            <div class="nav-tab" onclick="switchPage('alerts')">Alerts</div>
+            <div class="nav-tab active" onclick="switchPage('command')">Command Center</div>
         </div>
         
-        <div class="flex items-center space-x-4">
-            <div class="flex items-center space-x-2 text-xs font-bold px-3 py-1.5 rounded-lg bg-black/20 border border-white/10" id="conn-status">
-                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse" id="conn-indicator"></div>
-                <span id="conn-text" class="text-red-400">OFFLINE</span>
-            </div>
+        <!-- Status -->
+        <div class="flex items-center gap-4 text-[10px] font-mono font-bold text-[#9AA1AA]">
+            <div class="flex items-center gap-1.5"><span class="status-dot bg-[#22C55E] animate-pulse"></span> SYSTEM LIVE</div>
+            <div id="live-clock" class="text-[#E8EAED]">14:55:32 IST</div>
         </div>
-    </nav>
+    </header>
 
-    <!-- PAGE 1: Home / Nowcast -->
-    <div id="page-home" class="page-content active w-full max-w-[1920px] mx-auto bg-[#E8EEF5] p-8 min-h-[calc(100vh-64px)]">
-        <div class="flex justify-between items-end mb-6 border-b border-[#CBD5E1] pb-4">
-            <div>
-                <h2 class="text-3xl font-black text-[#0B1F3A] tracking-tight">NATIONAL DISASTER SITUATION OVERVIEW</h2>
-                <p class="text-[#64748B] font-bold mt-1">Live monitoring across active regions</p>
-            </div>
-            <div class="text-xs font-mono bg-blue-50 text-blue-800 px-3 py-1.5 rounded-lg font-bold border border-blue-200">
-                SYSTEM NOMINAL
-            </div>
-        </div>
-        
-        <!-- Operational Summary Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div class="bg-[#F7F9FC] border border-[#CBD5E1] p-4 rounded-xl shadow-sm border-l-4 border-l-red-500">
-                <p class="text-[10px] text-[#64748B] font-bold uppercase mb-1">Active SOS</p>
-                <p class="text-2xl font-black text-[#172B4D]" id="overview-stat-sos">0</p>
-            </div>
-            <div class="bg-[#F7F9FC] border border-[#CBD5E1] p-4 rounded-xl shadow-sm border-l-4 border-l-amber-500">
-                <p class="text-[10px] text-[#64748B] font-bold uppercase mb-1">Active Alerts</p>
-                <p class="text-2xl font-black text-[#172B4D]">4</p>
-            </div>
-            <div class="bg-[#F7F9FC] border border-[#CBD5E1] p-4 rounded-xl shadow-sm border-l-4 border-l-blue-500">
-                <p class="text-[10px] text-[#64748B] font-bold uppercase mb-1">Units Deployed</p>
-                <p class="text-2xl font-black text-[#172B4D]" id="overview-stat-teams">0</p>
-            </div>
-            <div class="bg-[#F7F9FC] border border-[#CBD5E1] p-4 rounded-xl shadow-sm border-l-4 border-l-emerald-500">
-                <p class="text-[10px] text-[#64748B] font-bold uppercase mb-1">Rescue Boats</p>
-                <p class="text-2xl font-black text-[#172B4D]">12</p>
-            </div>
-            <div class="bg-[#F7F9FC] border border-[#CBD5E1] p-4 rounded-xl shadow-sm border-l-4 border-l-slate-800">
-                <p class="text-[10px] text-[#64748B] font-bold uppercase mb-1">Network Status</p>
-                <p class="text-xl font-black text-[#00875A] mt-1">ONLINE</p>
+    <!-- WRAPPER FOR PAGES -->
+    <main class="flex-1 relative overflow-hidden bg-[#080A0D]">
+    
+        <!-- PAGE 1: NOWCAST (Hidden by default, keeps existing structure but dark) -->
+        <div id="page-home" class="page-content w-full h-full p-4 overflow-y-auto">
+            <div class="panel p-6 max-w-4xl mx-auto mt-10">
+                <h2 class="text-xl font-bold mb-4">Nowcast Dashboard</h2>
+                <p class="text-sm text-[#9AA1AA]">Use the Command Center tab for the unified operational view.</p>
             </div>
         </div>
 
-        <!-- Main Dashboard Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            
-            <!-- LEFT COLUMN (Weather & Risk) -->
-            <div class="col-span-1 space-y-6">
-                <!-- Weather Card (Preserved but shrunk) -->
-                <div class="bg-[#F7F9FC] border border-[#CBD5E1] rounded-xl shadow-sm p-4">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-bold text-[10px] text-[#64748B] flex items-center gap-1"><i data-lucide="sun" class="w-3 h-3 text-amber-500"></i> LIVE WEATHER</h3>
-                        <span class="text-[9px] text-[#64748B] font-mono" id="weather-updated">Live</span>
-                    </div>
-                    <div class="flex items-end gap-2 mb-4 border-b border-slate-100 pb-3">
-                        <span class="text-3xl font-black text-[#172B4D]" id="w-temp">28.7°C</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2 text-center">
-                        <div class="bg-slate-50 p-2 rounded">
-                            <p class="text-[9px] font-bold text-[#64748B] uppercase">Rain</p>
-                            <p class="font-mono font-bold text-[#1D4ED8] text-xs" id="w-rain">0 mm/h</p>
-                        </div>
-                        <div class="bg-slate-50 p-2 rounded">
-                            <p class="text-[9px] font-bold text-[#64748B] uppercase">Wind</p>
-                            <p class="font-mono font-bold text-[#172B4D] text-xs" id="w-wind">12.9 km/h</p>
-                        </div>
-                    </div>
-                </div>
+        <!-- PAGE 2: MAP (Hidden, redundant since Map is in Command Center) -->
+        <div id="page-map" class="page-content w-full h-full">
+            <!-- Moved Map to Command Center -->
+        </div>
 
-                <!-- Disaster Risk Overview -->
-                <div class="bg-[#F7F9FC] border border-[#CBD5E1] rounded-xl shadow-sm p-4">
-                    <h3 class="font-bold text-[10px] text-[#64748B] mb-3 uppercase tracking-wider">Disaster Risk Overview</h3>
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-[#172B4D]">Flood</span>
-                            <span class="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="bg-red-500 w-3/4 h-full"></div></span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-[#172B4D]">Cyclone</span>
-                            <span class="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="bg-amber-500 w-1/2 h-full"></div></span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-[#172B4D]">Landslide</span>
-                            <span class="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="bg-emerald-500 w-1/4 h-full"></div></span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-[#172B4D]">Heatwave</span>
-                            <span class="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="bg-emerald-500 w-1/4 h-full"></div></span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-[#172B4D]">Earthquake</span>
-                            <span class="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="bg-emerald-500 w-1/4 h-full"></div></span>
-                        </div>
-                    </div>
-                </div>
+        <!-- PAGE 3: EVACUATE -->
+        <div id="page-evacuate" class="page-content w-full h-full p-4 overflow-y-auto">
+            <div class="panel p-6 max-w-4xl mx-auto mt-10 text-center">
+                <i data-lucide="map" class="w-16 h-16 mx-auto mb-4 text-[#30363D]"></i>
+                <h3 class="text-lg font-bold">No Active Evacuation Orders</h3>
+            </div>
+        </div>
+
+        <!-- PAGE 4: ALERTS -->
+        <div id="page-alerts" class="page-content w-full h-full p-4 overflow-y-auto">
+            <div class="panel p-6 max-w-4xl mx-auto mt-10">
+                <h3 class="text-lg font-bold mb-4 border-b border-[#30363D] pb-2">Active Mass Alerts</h3>
+                <div id="alerts-list" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- PAGE 5: COMMAND CENTER (THE NEW 3-COLUMN DENSE LAYOUT) -->
+        <div id="page-command" class="page-content active h-full w-full">
+            <div id="unified-dashboard">
                 
-                <!-- Network Status -->
-                <div class="bg-[#0B1F3A] rounded-xl shadow-sm p-4 text-white">
-                    <h3 class="font-bold text-[10px] text-[#64748B] mb-3 uppercase tracking-wider flex items-center gap-1"><i data-lucide="radio-tower" class="w-3 h-3"></i> RakshaCast Network</h3>
-                    <div class="space-y-2">
-                        <div class="flex justify-between items-center text-xs border-b border-slate-700 pb-1">
-                            <span class="font-medium">Satellite Link</span><span class="text-emerald-400 font-bold text-[9px] bg-emerald-900/50 px-1 rounded">ONLINE</span>
-                        </div>
-                        <div class="flex justify-between items-center text-xs border-b border-slate-700 pb-1">
-                            <span class="font-medium">BLE Mesh</span><span class="text-amber-400 font-bold text-[9px] bg-amber-900/50 px-1 rounded">DEGRADED</span>
-                        </div>
-                        <div class="flex justify-between items-center text-xs border-b border-slate-700 pb-1">
-                            <span class="font-medium">Emergency SMS</span><span class="text-emerald-400 font-bold text-[9px] bg-emerald-900/50 px-1 rounded">ONLINE</span>
-                        </div>
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="font-medium">Cellular</span><span class="text-red-400 font-bold text-[9px] bg-red-900/50 px-1 rounded">OFFLINE</span>
-                        </div>
+                <!-- LEFT: Active Incidents (Smart Inbox) -->
+                <div class="panel row-span-2">
+                    <div class="panel-header">
+                        <div class="flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4 text-[#FF3B30]"></i> ACTIVE INCIDENTS</div>
+                        <span class="text-[9px] bg-[#30363D] px-1.5 py-0.5 rounded text-[#E8EAED]">LIVE</span>
+                    </div>
+                    <!-- The existing inbox list logic requires id="inbox-list" -->
+                    <div class="flex-1 overflow-y-auto p-2 space-y-2" id="inbox-list">
+                        <!-- JS injects cards here. We will restyle them via CSS/JS later if needed, but for now they render as is. -->
                     </div>
                 </div>
-            </div>
 
-            <!-- CENTER COLUMN (Map Preview & Threats) -->
-            <div class="col-span-1 lg:col-span-2 flex flex-col gap-6">
-                <!-- Map Preview -->
-                <div class="bg-[#F7F9FC] border border-[#CBD5E1] rounded-xl shadow-sm overflow-hidden flex flex-col h-64 relative group">
-                    <div class="absolute inset-0 bg-[url('https://a.tile.openstreetmap.org/13/5820/3440.png')] bg-cover bg-center opacity-80 filter saturate-50"></div>
-                    <div class="absolute inset-0 bg-slate-900/10"></div>
-                    <div class="absolute top-1/2 left-1/3 w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-[0_0_8px_red] animate-pulse"></div>
-                    <div class="absolute top-1/3 left-1/2 w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-md flex items-center justify-center text-[6px] text-white font-bold">N</div>
+                <!-- CENTER: Large Live GIS Map -->
+                <div class="panel border-2 border-[#1976D2] shadow-[0_0_15px_rgba(25,118,210,0.15)] relative">
+                    <!-- The existing map logic requires id="map" -->
+                    <div id="map" class="w-full h-full z-10"></div>
                     
-                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-slate-900/40 transition backdrop-blur-sm">
-                        <button onclick="switchPage('map')" class="bg-ndrf-primary hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-xl flex items-center gap-2 transform transition hover:scale-105">
-                            OPEN LIVE MAP <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                        </button>
+                    <!-- Map Toolbar Overlay -->
+                    <div class="absolute top-2 left-2 z-20 flex gap-2">
+                        <div class="bg-[#111418]/90 border border-[#30363D] text-[10px] font-bold px-3 py-1.5 rounded backdrop-blur flex items-center gap-2">
+                            <span class="status-dot bg-[#FF3B30] animate-pulse"></span> CRITICAL ZONE OVERLAY
+                        </div>
                     </div>
-                    <div class="absolute bottom-3 left-3 bg-[#F7F9FC]/90 backdrop-blur px-3 py-1.5 rounded-lg shadow text-xs font-bold text-[#172B4D] flex items-center gap-2 border border-[#CBD5E1]">
-                        <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                        Live GIS Preview
+                    
+                    <!-- Map Legend Overlay -->
+                    <div class="absolute bottom-6 left-2 z-20 bg-[#111418]/90 border border-[#30363D] text-[9px] font-bold p-2 rounded backdrop-blur space-y-1.5">
+                        <div class="flex items-center gap-2"><span class="status-dot bg-[#FF3B30]"></span> Critical Incident</div>
+                        <div class="flex items-center gap-2"><span class="status-dot bg-[#FF9800]"></span> High Severity</div>
+                        <div class="flex items-center gap-2"><span class="status-dot bg-[#1976D2]"></span> Flood / Water</div>
+                        <div class="flex items-center gap-2"><span class="status-dot bg-[#22C55E]"></span> NDRF Unit</div>
                     </div>
                 </div>
 
-                <!-- Active Threats -->
-                <div class="bg-[#F7F9FC] border border-[#CBD5E1] rounded-xl shadow-sm p-4 flex-1">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-[10px] text-[#64748B] uppercase tracking-wider">Active Regional Threats</h3>
-                        <button onclick="switchPage('command')" class="text-[9px] font-bold text-[#1D4ED8] hover:text-blue-800">VIEW COMMAND CENTER &rarr;</button>
+                <!-- RIGHT: Command Metrics & Details -->
+                <div class="panel row-span-2 flex flex-col">
+                    <div class="panel-header">
+                        COMMAND METRICS
                     </div>
-                    <div class="space-y-3">
-                        <div class="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-lg">
-                            <div class="w-2 h-2 mt-1.5 rounded-full bg-red-500 shadow-[0_0_5px_red] shrink-0"></div>
-                            <div class="flex-1">
-                                <div class="flex justify-between items-start">
-                                    <h4 class="font-black text-red-800 text-sm">Flash Flood Warning</h4>
-                                    <span class="text-[9px] font-black bg-red-200 text-red-800 px-1.5 py-0.5 rounded">CRITICAL</span>
-                                </div>
-                                <p class="text-xs text-red-700 mt-0.5 font-medium">Hyderabad Lowlands</p>
-                                <p class="text-[10px] text-[#D92D20] mt-1 uppercase font-bold tracking-wide">Response in progress</p>
-                            </div>
+                    <div class="p-3 grid grid-cols-2 gap-2 border-b border-[#30363D]">
+                        <div class="bg-[#181C21] p-3 rounded border border-[#30363D]">
+                            <p class="text-[9px] text-[#9AA1AA] font-bold uppercase mb-1 flex items-center justify-between">ACTIVE ALERTS <i data-lucide="alert-triangle" class="w-3 h-3 text-[#FF9800]"></i></p>
+                            <p class="metric-value text-[#FF9800]" id="stats-alerts">12</p>
                         </div>
-                        <div class="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
-                            <div class="w-2 h-2 mt-1.5 rounded-full bg-amber-500 shadow-[0_0_5px_orange] shrink-0"></div>
-                            <div class="flex-1">
-                                <div class="flex justify-between items-start">
-                                    <h4 class="font-black text-amber-800 text-sm">Heavy Rainfall</h4>
-                                    <span class="text-[9px] font-black bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">HIGH</span>
-                                </div>
-                                <p class="text-xs text-amber-700 mt-0.5 font-medium">Vijayawada Sector 4</p>
-                                <p class="text-[10px] text-amber-600 mt-1 uppercase font-bold tracking-wide">Monitoring</p>
-                            </div>
+                        <div class="bg-[#181C21] p-3 rounded border border-[#30363D]">
+                            <p class="text-[9px] text-[#9AA1AA] font-bold uppercase mb-1 flex items-center justify-between">UNITS DEPLOYED <i data-lucide="users" class="w-3 h-3 text-[#1976D2]"></i></p>
+                            <p class="metric-value text-[#1976D2]">184</p>
                         </div>
-                        <div class="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                            <div class="w-2 h-2 mt-1.5 rounded-full bg-blue-500 shrink-0"></div>
-                            <div class="flex-1">
-                                <div class="flex justify-between items-start">
-                                    <h4 class="font-black text-blue-800 text-sm">River Level Rising</h4>
-                                    <span class="text-[9px] font-black bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded">MODERATE</span>
-                                </div>
-                                <p class="text-xs text-blue-700 mt-0.5 font-medium">Telangana Godavari Basin</p>
-                            </div>
+                        <div class="bg-[#181C21] p-3 rounded border border-[#30363D]">
+                            <p class="text-[9px] text-[#9AA1AA] font-bold uppercase mb-1 flex items-center justify-between">EVACUATED <i data-lucide="shield-check" class="w-3 h-3 text-[#22C55E]"></i></p>
+                            <p class="metric-value text-[#22C55E]">8,421</p>
+                        </div>
+                        <div class="bg-[#181C21] p-3 rounded border border-[#30363D]">
+                            <p class="text-[9px] text-[#9AA1AA] font-bold uppercase mb-1 flex items-center justify-between">SHELTERS <i data-lucide="home" class="w-3 h-3 text-[#00A8E8]"></i></p>
+                            <p class="metric-value text-[#00A8E8]">42</p>
                         </div>
                     </div>
-                </div>
-            </div>
+                    
+                    <div class="panel-header border-t-0">
+                        INCIDENT INTELLIGENCE
+                    </div>
+                    <!-- Existing incident details logic requires id="incident-details" -->
+                    <div class="flex-1 p-3 overflow-y-auto bg-[#080A0D]" id="incident-details">
+                        <div class="h-full flex flex-col items-center justify-center text-center text-[#9AA1AA] space-y-2 opacity-50">
+                            <i data-lucide="crosshair" class="w-8 h-8"></i>
+                            <p class="text-[10px] font-bold uppercase">Select incident from left panel<br>to view GIS intelligence</p>
+                        </div>
+                    </div>
 
-            <!-- RIGHT COLUMN (Alerts & Actions) -->
-            <div class="col-span-1 space-y-6">
-                <!-- Quick Actions -->
-                <div class="bg-[#F7F9FC] border border-[#CBD5E1] rounded-xl shadow-sm p-4">
-                    <h3 class="font-bold text-[10px] text-[#64748B] mb-3 uppercase tracking-wider">Quick Actions</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="switchPage('map')" class="bg-blue-50 hover:bg-blue-100 border border-blue-200 p-3 rounded-lg flex flex-col items-center gap-2 transition group">
-                            <i data-lucide="map" class="w-5 h-5 text-[#1D4ED8] group-hover:scale-110 transition"></i>
-                            <span class="text-[9px] font-bold text-[#172B4D] uppercase text-center leading-tight mt-1">Live Map</span>
-                        </button>
-                        <button onclick="switchPage('alerts')" class="bg-amber-50 hover:bg-amber-100 border border-amber-200 p-3 rounded-lg flex flex-col items-center gap-2 transition group">
-                            <i data-lucide="bell" class="w-5 h-5 text-amber-600 group-hover:scale-110 transition"></i>
-                            <span class="text-[9px] font-bold text-[#172B4D] uppercase text-center leading-tight mt-1">Active Alerts</span>
-                        </button>
-                        <button onclick="switchPage('evacuate')" class="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 p-3 rounded-lg flex flex-col items-center gap-2 transition group">
-                            <i data-lucide="navigation" class="w-5 h-5 text-[#00875A] group-hover:scale-110 transition"></i>
-                            <span class="text-[9px] font-bold text-[#172B4D] uppercase text-center leading-tight mt-1">Safe Routes</span>
-                        </button>
-                        <button onclick="switchPage('command')" class="bg-red-50 hover:bg-red-100 border border-red-200 p-3 rounded-lg flex flex-col items-center gap-2 transition group">
-                            <i data-lucide="shield-alert" class="w-5 h-5 text-red-600 group-hover:scale-110 transition"></i>
-                            <span class="text-[9px] font-bold text-[#172B4D] uppercase text-center leading-tight mt-1">Dispatch</span>
-                        </button>
+                    <!-- Commander Broadcast Form -->
+                    <div class="panel-header border-t border-[#30363D]">
+                        OFFICIAL WARNING BROADCAST
+                    </div>
+                    <div class="p-3 bg-[#181C21]">
+                        <div class="space-y-2">
+                            <select id="broadcast-level" class="w-full text-[10px] p-1.5 rounded bg-[#080A0D] text-[#E8EAED] border border-[#30363D] font-bold outline-none">
+                                <option value="CRITICAL">🔴 RED CRITICAL</option>
+                                <option value="WARNING">🟠 ORANGE WARNING</option>
+                                <option value="INFO">🔵 BLUE ADVISORY</option>
+                            </select>
+                            <input type="text" id="broadcast-title" value="RED CRITICAL: NOWCAST FLASH FLOOD" class="w-full text-[10px] p-1.5 rounded bg-[#080A0D] text-[#E8EAED] border border-[#30363D] font-bold outline-none">
+                            <textarea id="broadcast-msg" rows="2" class="w-full text-[10px] p-1.5 rounded bg-[#080A0D] text-[#E8EAED] border border-[#30363D] font-bold outline-none resize-none">Immediate mandatory evacuation along designated high-ridge routes.</textarea>
+                            <button onclick="sendBroadcast()" class="w-full bg-[#FF3B30] hover:bg-[#d63026] text-white font-black uppercase text-[10px] py-2 rounded shadow-md transition flex items-center justify-center gap-2">
+                                <i data-lucide="radio" class="w-3 h-3"></i> Transmit Live Alert
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Recent Alerts -->
-                <div class="bg-[#F7F9FC] border border-[#CBD5E1] rounded-xl shadow-sm p-4 flex-1">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-bold text-[10px] text-[#64748B] uppercase tracking-wider">Recent Alerts</h3>
-                        <button onclick="switchPage('alerts')" class="text-[9px] font-bold text-[#1D4ED8] hover:text-blue-800">ALL</button>
+                <!-- BOTTOM: Analytics / Resource Strip -->
+                <div class="flex gap-2 h-full">
+                    <div class="panel flex-1">
+                        <div class="panel-header border-b-0">THREAT DISTRIBUTION</div>
+                        <div class="flex-1 p-3 flex flex-col justify-center gap-2 text-[10px] font-bold">
+                            <div class="flex items-center gap-2"><span class="w-16 text-[#9AA1AA]">Flood</span> <div class="flex-1 bg-[#30363D] h-1.5 rounded overflow-hidden"><div class="bg-[#1976D2] h-full" style="width: 65%"></div></div> <span>65%</span></div>
+                            <div class="flex items-center gap-2"><span class="w-16 text-[#9AA1AA]">Cyclone</span> <div class="flex-1 bg-[#30363D] h-1.5 rounded overflow-hidden"><div class="bg-[#00A8E8] h-full" style="width: 20%"></div></div> <span>20%</span></div>
+                            <div class="flex items-center gap-2"><span class="w-16 text-[#9AA1AA]">Landslide</span> <div class="flex-1 bg-[#30363D] h-1.5 rounded overflow-hidden"><div class="bg-[#FF9800] h-full" style="width: 12%"></div></div> <span>12%</span></div>
+                            <div class="flex items-center gap-2"><span class="w-16 text-[#9AA1AA]">Heatwave</span> <div class="flex-1 bg-[#30363D] h-1.5 rounded overflow-hidden"><div class="bg-[#FF3B30] h-full" style="width: 3%"></div></div> <span>3%</span></div>
+                        </div>
                     </div>
-                    <div class="space-y-4">
-                        <div class="border-l-2 border-red-500 pl-2">
-                            <p class="text-[9px] text-[#64748B] font-mono mb-0.5">14:02 IST</p>
-                            <p class="text-xs font-bold text-[#172B4D]">MANDATORY EVACUATION</p>
-                            <p class="text-[10px] text-[#64748B] mt-0.5">Sector 4 Floods</p>
+                    <div class="panel flex-1">
+                        <div class="panel-header border-b-0">RESPONSE STATUS</div>
+                        <div class="flex-1 p-3 flex flex-col justify-center gap-2 text-[10px] font-bold">
+                            <div class="flex items-center gap-2"><span class="w-16 text-[#9AA1AA]">Assigned</span> <div class="flex-1 bg-[#30363D] h-1.5 rounded overflow-hidden"><div class="bg-[#9AA1AA] h-full" style="width: 80%"></div></div> <span>80</span></div>
+                            <div class="flex items-center gap-2"><span class="w-16 text-[#9AA1AA]">In Progress</span> <div class="flex-1 bg-[#30363D] h-1.5 rounded overflow-hidden"><div class="bg-[#1976D2] h-full" style="width: 45%"></div></div> <span>45</span></div>
+                            <div class="flex items-center gap-2"><span class="w-16 text-[#9AA1AA]">Completed</span> <div class="flex-1 bg-[#30363D] h-1.5 rounded overflow-hidden"><div class="bg-[#22C55E] h-full" style="width: 120%"></div></div> <span>120</span></div>
+                            <div class="flex items-center gap-2"><span class="w-16 text-[#9AA1AA]">Pending</span> <div class="flex-1 bg-[#30363D] h-1.5 rounded overflow-hidden"><div class="bg-[#FF9800] h-full" style="width: 15%"></div></div> <span>15</span></div>
                         </div>
-                        <div class="border-l-2 border-amber-500 pl-2">
-                            <p class="text-[9px] text-[#64748B] font-mono mb-0.5">11:45 IST</p>
-                            <p class="text-xs font-bold text-[#172B4D]">Heavy Rain Warning</p>
-                            <p class="text-[10px] text-[#64748B] mt-0.5">Telangana Region</p>
-                        </div>
-                        <div class="border-l-2 border-blue-500 pl-2">
-                            <p class="text-[9px] text-[#64748B] font-mono mb-0.5">08:00 IST</p>
-                            <p class="text-xs font-bold text-[#172B4D]">System Nominal</p>
-                            <p class="text-[10px] text-[#64748B] mt-0.5">Daily check passed</p>
+                    </div>
+                    <div class="panel flex-1">
+                        <div class="panel-header border-b-0">SYSTEM STATUS</div>
+                        <div class="flex-1 p-3 flex flex-col justify-center gap-2.5 text-[10px] font-bold text-[#E8EAED]">
+                            <div class="flex justify-between items-center">Satellite Link <span class="flex items-center gap-1.5 text-[#22C55E]"><span class="status-dot bg-[#22C55E]"></span> ONLINE</span></div>
+                            <div class="flex justify-between items-center">GIS Service <span class="flex items-center gap-1.5 text-[#22C55E]"><span class="status-dot bg-[#22C55E]"></span> ONLINE</span></div>
+                            <div class="flex justify-between items-center">Emergency SMS <span class="flex items-center gap-1.5 text-[#22C55E]"><span class="status-dot bg-[#22C55E]"></span> ONLINE</span></div>
+                            <div class="flex justify-between items-center">Cellular Towers <span class="flex items-center gap-1.5 text-[#FF9800]"><span class="status-dot bg-[#FF9800]"></span> DEGRADED</span></div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-        </div>
-    </div>
-
-    <!-- PAGE 2: Live Map -->
-    <div id="page-map" class="page-content relative">
-        <div class="absolute top-4 right-4 z-[400] bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg border border-slate-200 text-xs font-medium w-64">
-            <div class="font-bold text-ndrf-navy mb-2 border-b pb-2 flex items-center justify-between">
-                <span>Hazard Radius Legend</span>
-                <i data-lucide="info" class="w-4 h-4 text-slate-400"></i>
-            </div>
-            <div class="space-y-2">
-                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span> Flood Surge (1.2 km)</div>
-                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-red-500 shadow-sm"></span> Cyclone/Wind (1.5 km)</div>
-                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-purple-500 shadow-sm"></span> Lightning (800m)</div>
-                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-500 shadow-sm"></span> Landslide (600m)</div>
-            </div>
-            <button onclick="createMassAlert()" class="w-full mt-4 bg-ndrf-primary text-white font-bold py-2 rounded flex items-center justify-center gap-2 hover:bg-orange-600 transition">
-                <i data-lucide="megaphone" class="w-4 h-4"></i> Draw Alert Area
-            </button>
-        </div>
-        <div id="map" class="w-full h-full z-10"></div>
-    </div>
-
-    <!-- PAGE 3: Evacuate (Placeholder) -->
-    <div id="page-evacuate" class="page-content max-w-4xl mx-auto w-full">
-        <h2 class="text-2xl font-black text-ndrf-navy mb-6 border-b pb-2">Evacuation Routes</h2>
-        <div class="panel p-8 text-center text-slate-500 flex flex-col items-center justify-center">
-            <i data-lucide="map" class="w-16 h-16 mb-4 text-slate-300"></i>
-            <h3 class="text-lg font-bold text-slate-700">No Active Evacuation Orders</h3>
-            <p class="text-sm mt-2 max-w-md">The area is currently secure. Safe routes will be dynamically generated here if hazard levels breach the threshold.</p>
-        </div>
-    </div>
-
-    <!-- PAGE 4: Alerts (Placeholder) -->
-    <div id="page-alerts" class="page-content max-w-4xl mx-auto w-full">
-        <h2 class="text-2xl font-black text-ndrf-navy mb-6 border-b pb-2">System Alerts</h2>
-        <div id="alerts-feed" class="space-y-4">
-            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded shadow-sm">
-                <div class="flex justify-between items-start">
-                    <h4 class="font-bold text-blue-900">System Online</h4>
-                    <span class="text-[10px] text-blue-500 font-mono">Just now</span>
-                </div>
-                <p class="text-sm text-blue-800 mt-1">RakshaCast backend connection established via WebSocket.</p>
             </div>
         </div>
-    </div>
+    
+    </main>
 
-    <!-- PAGE 5: Command Center (Smart Triage Inbox) -->
-    <div id="page-command" class="page-content h-full">
-          <div id="command-grid">
-              
-              <!-- Left Panel: Commander Profile & Broadcaster -->
-              <div class="flex flex-col gap-4 h-full overflow-y-auto">
-                  <!-- Commander Profile -->
-                  <div class="panel p-4 bg-slate-900 text-white rounded-2xl shadow-lg border-2 border-slate-700">
-                      <div class="flex items-center gap-3 border-b border-slate-700 pb-3 mb-3">
-                          <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center border-2 border-white shadow-md">
-                              <i data-lucide="medal" class="w-6 h-6 text-white"></i>
-                          </div>
-                          <div>
-                              <h3 class="font-bold text-sm">Commander Vikram Rathore</h3>
-                              <p class="text-[10px] text-slate-300">NDRF-OFFICER-1092 &bull; Incident Commander</p>
-                          </div>
-                          <div class="ml-auto bg-emerald-900 text-emerald-400 text-[9px] font-black px-2 py-1 rounded border border-emerald-700">
-                              ACTIVE ON-DUTY
-                          </div>
-                      </div>
-                      <div class="grid grid-cols-2 gap-2 text-xs">
-                          <div class="bg-slate-800 p-2 rounded border border-slate-700">
-                              <p class="text-[9px] text-slate-400 uppercase font-bold mb-1">BATTALION UNIT</p>
-                              <p class="font-bold text-blue-300">10th NDRF Battalion</p>
-                              <p class="text-[9px] text-slate-400">Hyderabad Ops Sector</p>
-                          </div>
-                          <div class="bg-slate-800 p-2 rounded border border-slate-700">
-                              <p class="text-[9px] text-slate-400 uppercase font-bold mb-1">ACTIVE ASSETS</p>
-                              <p class="font-bold text-white">6 Rescue Boats</p>
-                              <p class="text-[9px] text-emerald-400 font-bold">Live GPS Tracking ON</p>
-                          </div>
-                      </div>
-                  </div>
+    <!-- Global Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-                  <!-- Broadcast Official Warning -->
-                  <div class="panel flex-1 bg-white rounded-2xl shadow-lg border border-red-200 overflow-hidden">
-                      <div class="bg-red-950 text-white p-3 flex items-center justify-between border-b-2 border-red-600">
-                          <div class="flex items-center gap-2">
-                              <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                              <h3 class="font-black text-xs uppercase tracking-wide">Broadcast Official Warning</h3>
-                          </div>
-                          <span class="text-[8px] font-mono text-red-300">Live Multi-Device Bus</span>
-                      </div>
-                      <div class="p-4 space-y-3">
-                          <div>
-                              <label class="block text-[9px] font-black text-slate-800 uppercase mb-1">Alert Severity Level</label>
-                              <select id="broadcast-level" class="w-full text-xs p-2 rounded bg-slate-900 text-white border border-slate-700 font-bold outline-none">
-                                  <option value="CRITICAL">🔴 RED CRITICAL (Immediate Evacuation)</option>
-                                  <option value="WARNING">🟠 ORANGE WARNING (Be Prepared)</option>
-                                  <option value="INFO">🔵 BLUE ADVISORY (Monitor Updates)</option>
-                              </select>
-                          </div>
-                          <div>
-                              <label class="block text-[9px] font-black text-slate-800 uppercase mb-1">Alert Headline / Title</label>
-                              <input type="text" id="broadcast-title" value="RED CRITICAL: NOWCAST FLASH FLOOD & CLOUDBURST" class="w-full text-xs p-2 rounded bg-slate-900 text-white border border-slate-700 font-bold outline-none">
-                          </div>
-                          <div>
-                              <label class="block text-[9px] font-black text-slate-800 uppercase mb-1">Actionable Instructions</label>
-                              <textarea id="broadcast-msg" rows="3" class="w-full text-xs p-2 rounded bg-slate-900 text-white border border-slate-700 font-bold outline-none resize-none">Immediate mandatory evacuation along designated high-ridge routes. Extreme downpour core active.</textarea>
-                          </div>
-                          <button onclick="sendBroadcast()" class="w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[11px] py-3 rounded-lg shadow-md transition active:scale-95 flex items-center justify-center gap-2">
-                              <i data-lucide="radio" class="w-4 h-4"></i> Transmit Live Alert
-                          </button>
-                      </div>
-                  </div>
-              </div>
-
-              <!-- The Smart Inbox -->
-            <div class="panel">
-                <div class="bg-blue-950 text-white p-3 rounded-t shadow flex items-center justify-between border-b border-blue-900 sticky top-0 z-10">
-                    <div>
-                        <h2 class="text-sm font-bold">NDRF Incident Command Center</h2>
-                        <p class="text-[10px] text-blue-200">10th Battalion &ndash; Haridwar-Rishikesh Sector</p>
-                    </div>
-                    <span class="px-2 py-0.5 rounded text-[9px] bg-red-600 text-white font-black animate-pulse">LIVE INCIDENT ROOM</span>
-                </div>
-                
-                <!-- Bulk Action Bar -->
-                <div class="bg-blue-50 border-b border-blue-100 p-3 flex justify-between items-center hidden" id="bulk-action-bar">
-                    <span class="text-xs font-bold text-blue-800"><span id="selected-count">0</span> Requests Selected</span>
-                    <div class="flex gap-2">
-                        <select id="bulk-team-select" class="text-xs border border-blue-200 rounded p-1.5 bg-white text-blue-900 font-medium outline-none">
-                            <option value="">Select Rescue Unit...</option>
-                            <!-- Teams populated via JS -->
-                        </select>
-                        <button onclick="bulkDispatch()" class="bg-ndrf-primary hover:bg-orange-600 text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm transition">Bulk Dispatch</button>
-                    </div>
-                </div>
-                
-                <!-- Inbox List -->
-                <div class="inbox-list space-y-3 text-xs p-3 bg-slate-100 h-full" id="inbox-list">
-                    <!-- Cards injected by JS -->
-                </div>
-            </div>
-
-            <!-- Incident Details Side Panel -->
-            <div class="panel bg-slate-50">
-                <div class="panel-header bg-slate-800 text-white">Incident Profile</div>
-                <div class="flex-1 overflow-y-auto p-5" id="incident-details">
-                    <div class="h-full flex flex-col items-center justify-center text-slate-400 space-y-4 text-center">
-                        <i data-lucide="mouse-pointer-click" class="w-12 h-12 opacity-50"></i>
-                        <p class="text-sm font-medium px-4">Select an SOS request from the inbox to view full telemetry and dispatch units.</p>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- Toast Notifications Container -->
-    <div id="toast-container" class="fixed top-20 right-6 z-[2000] flex flex-col gap-3 pointer-events-none w-80"></div>
-
-    <!-- Floating Alarm Button -->
-    <button onclick="testSOS()" class="fixed bottom-8 right-8 w-20 h-20 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-[0_8px_24px_rgba(220,38,38,0.6)] flex flex-col items-center justify-center border-4 border-white z-[100] transition transform hover:scale-105 active:scale-95">
-        <i data-lucide="triangle-alert" class="w-8 h-8 mb-0.5 animate-pulse"></i>
-        <span class="text-[10px] font-black uppercase tracking-wider">ALARM</span>
-    </button>
-
-    <script src="/dashboard/dashboard.js"></script>
+    <!-- The actual logic that runs the dashboard -->
+    <script src="dashboard.js"></script>
     <script>
-        lucide.createIcons();
-        // Initialize Default Page
-        switchPage('home');
+        // Clock updater
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST';
+        }, 1000);
     </script>
 </body>
 </html>
