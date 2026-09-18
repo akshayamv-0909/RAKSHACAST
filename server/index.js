@@ -170,6 +170,14 @@ const server = http.createServer(async (req, res) => {
                 return res.writeHead(200), res.end(JSON.stringify(fullState));
             }
 
+            
+            if (pathname === '/api/admin/alert' && req.method === 'POST') {
+                const data = await getBody();
+                io.emit('emergency_broadcast', { type: data.type, message: data.message, title: data.title, timestamp: Date.now() });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ success: true }));
+            }
+
             if (pathname === "/api/sos" && req.method === "POST") {
                 const data = await getBody();
                 let triageScore = 35;
