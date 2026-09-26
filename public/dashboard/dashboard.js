@@ -390,8 +390,32 @@ window.selectIncident = function(idOrObj) {
             </div>
         </div>
     `;
+    
+    // Also populate the ALERTS tab list for demo purposes
+    const alertsListEl = document.getElementById('alerts-list');
+    if (alertsListEl) {
+        alertsListEl.innerHTML = '';
+        sorted.forEach(sos => {
+            const loc = sos.locationDesc || (sos.lat ? `${sos.lat.toFixed(4)}, ${sos.lng.toFixed(4)}` : 'Unknown Location');
+            const alertHtml = `
+                <div class="bg-[#181C21] border border-[#FF3B30]/50 p-4 rounded-lg flex justify-between items-center text-white mb-3">
+                    <div>
+                        <h4 class="text-red-500 font-bold uppercase">${sos.userName || 'Citizen'} - ${sos.emergencyType || 'SOS EMERGENCY'}</h4>
+                        <p class="text-xs text-[#9AA1AA] mt-1">📍 ${loc}</p>
+                        <p class="text-sm bg-red-900/30 p-2 mt-2 rounded border border-red-500/30">"${sos.message}"</p>
+                    </div>
+                    <button onclick="switchPage('command'); selectIncident('${sos.id}');" class="bg-[#1976D2] hover:bg-blue-600 px-4 py-2 rounded text-xs font-bold uppercase transition shadow-lg">
+                        View in Command Center
+                    </button>
+                </div>
+            `;
+            alertsListEl.innerHTML += alertHtml;
+        });
+    }
+    
     lucide.createIcons();
 }
+
 
 window.dispatchTeam = async function(sosId, status) {
     const select = document.getElementById("assign-team-select");
