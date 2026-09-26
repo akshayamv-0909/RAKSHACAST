@@ -290,6 +290,65 @@ window.acknowledgeEvacuation = function() {
 
 
 
+
+// --- SIREN AUDIO GENERATOR ---
+function playLoudSiren() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.type = 'square';
+        // Siren wobble
+        setInterval(() => {
+            oscillator.frequency.value = oscillator.frequency.value === 440 ? 880 : 440;
+        }, 300);
+        
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.1);
+        
+        oscillator.start();
+        setTimeout(() => {
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            setTimeout(() => oscillator.stop(), 500);
+        }, 5000); // Play for 5 seconds
+    } catch(e) {
+        console.log("Audio play blocked by browser.");
+    }
+}
+
+// --- FULL SCREEN RED WARNING MODAL ---
+function showBoomWarning(title, message) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-[9999] bg-red-600/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white cursor-pointer';
+    modal.innerHTML = `
+        <div class="animate-pulse bg-red-900 rounded-full p-4 mb-6 shadow-[0_0_50px_rgba(255,0,0,0.8)]">
+            <i data-lucide="alert-triangle" class="w-20 h-20 text-white"></i>
+        </div>
+        <h1 class="text-4xl font-black uppercase tracking-wider mb-4 border-b-4 border-white pb-2">🚨 EMERGENCY ALERT 🚨</h1>
+        <h2 class="text-2xl font-bold mb-4">${title}</h2>
+        <p class="text-lg font-medium bg-black/30 p-4 rounded-xl border border-red-400 mb-8">${message}</p>
+        <p class="text-sm font-bold opacity-75">(Tap anywhere to dismiss)</p>
+    `;
+    
+    modal.onclick = () => {
+        modal.remove();
+    };
+    
+    document.body.appendChild(modal);
+    if(window.lucide) lucide.createIcons();
+    playLoudSiren();
+}
+
+if (socket) {
+    socket.on('emergency_broadcast', (alertData) => {
+        showBoomWarning(alertData.title || "NDRF WARNING", alertData.message || "Immediate Evacuation Required.");
+    });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
     loadSettingsFromStorage();
     try {
