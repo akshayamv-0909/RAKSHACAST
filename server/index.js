@@ -332,7 +332,7 @@ async function runLiveIngestionWorker() {
         const liveHazards = [];
         
         if (usgsData && usgsData.features) {
-            usgsData.features.forEach(eq => {
+            usgsData.features.slice(0, 30).forEach(eq => {
                 liveHazards.push({
                     id: eq.id,
                     type: 'EARTHQUAKE',
@@ -346,7 +346,7 @@ async function runLiveIngestionWorker() {
         }
         
         if (eonetData && eonetData.events) {
-            eonetData.events.forEach(ev => {
+            eonetData.events.slice(0, 30).forEach(ev => {
                 if(ev.geometry && ev.geometry.length > 0) {
                     liveHazards.push({
                         id: ev.id,

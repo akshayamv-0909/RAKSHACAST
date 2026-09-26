@@ -533,7 +533,7 @@ socket.on("new_sos", (sos) => {
     const sosModal = document.createElement('div');
     sosModal.className = 'fixed inset-0 z-[9999] bg-red-950/90 backdrop-blur-lg flex flex-col items-center justify-center p-6 text-center text-white cursor-pointer';
     sosModal.innerHTML = `
-        <div class="animate-ping absolute inset-0 bg-red-600/20 rounded-full w-96 h-96 m-auto"></div>
+        <div class=" absolute inset-0 bg-red-600/20 rounded-full w-96 h-96 m-auto"></div>
         <div class="relative z-10 animate-pulse bg-red-600 rounded-full p-6 mb-6 shadow-[0_0_100px_rgba(220,38,38,0.8)] border-4 border-white">
             <i data-lucide="radio" class="w-24 h-24 text-white"></i>
         </div>
