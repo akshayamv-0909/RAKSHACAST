@@ -665,3 +665,59 @@ window.openEvidenceModal = function(id) {
         if(window.lucide) lucide.createIcons();
     }
 }
+
+
+
+window.assignRescueTeam = async function(sosId) {
+    // 1. Find the SOS
+    const sos = STATE.sosRequests.find(s => s.id === sosId);
+    if (!sos) return;
+    
+    // 2. Play cinematic dispatch effect
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white';
+    modal.innerHTML = `
+        <div class="animate-spin mb-6">
+            <i data-lucide="loader" class="w-16 h-16 text-blue-500"></i>
+        </div>
+        <h1 class="text-3xl font-black uppercase tracking-widest mb-2 text-blue-500">ROUTING EMERGENCY DISPATCH</h1>
+        <h2 class="text-lg font-bold text-[#9AA1AA]">Assigning nearest available NDRF Unit to ${sosId}...</h2>
+    `;
+    document.body.appendChild(modal);
+    if(window.lucide) lucide.createIcons();
+    
+    // 3. Simulate delay and update backend
+    setTimeout(async () => {
+        try {
+            await fetch(`/api/sos/${sosId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ assignedTeam: "NDRF Fast-Response Alpha", status: "DISPATCHED" })
+            });
+            
+            // 4. Show success
+            modal.innerHTML = `
+                <div class="animate-pulse bg-blue-900 rounded-full p-4 mb-6 border-4 border-blue-500">
+                    <i data-lucide="truck" class="w-20 h-20 text-white"></i>
+                </div>
+                <h1 class="text-4xl font-black uppercase tracking-widest mb-2 text-white">UNITS DISPATCHED</h1>
+                <h2 class="text-xl font-bold mb-4 text-[#E8EAED]">NDRF Fast-Response Alpha is en route to the location.</h2>
+                <div class="bg-[#181C21] p-3 rounded border border-blue-500/50 text-left">
+                    <p class="text-xs text-[#9AA1AA] mb-1">Target Coordinates: ${sos.lat.toFixed(4)}, ${sos.lng.toFixed(4)}</p>
+                    <p class="text-xs text-[#9AA1AA]">ETA: 8 Minutes</p>
+                </div>
+            `;
+            if(window.lucide) lucide.createIcons();
+            
+            setTimeout(() => {
+                modal.style.opacity = '0';
+                modal.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => modal.remove(), 500);
+            }, 3000);
+            
+        } catch(e) {
+            console.error(e);
+            modal.remove();
+        }
+    }, 1500);
+};
