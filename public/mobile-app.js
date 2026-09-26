@@ -321,27 +321,38 @@ function playLoudSiren() {
 }
 
 // --- FULL SCREEN RED WARNING MODAL ---
+
 function showBoomWarning(title, message) {
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 z-[9999] bg-red-600/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white cursor-pointer';
+    // Change to absolute and append to mobile-shell instead of fixed/body
+    modal.className = 'absolute inset-0 z-[9999] bg-red-600/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white cursor-pointer rounded-[32px] overflow-hidden';
     modal.innerHTML = `
         <div class="animate-pulse bg-red-900 rounded-full p-4 mb-6 shadow-[0_0_50px_rgba(255,0,0,0.8)]">
             <i data-lucide="alert-triangle" class="w-20 h-20 text-white"></i>
         </div>
-        <h1 class="text-4xl font-black uppercase tracking-wider mb-4 border-b-4 border-white pb-2">🚨 EMERGENCY ALERT 🚨</h1>
-        <h2 class="text-2xl font-bold mb-4">${title}</h2>
-        <p class="text-lg font-medium bg-black/30 p-4 rounded-xl border border-red-400 mb-8">${message}</p>
-        <p class="text-sm font-bold opacity-75">(Tap anywhere to dismiss)</p>
+        <h1 class="text-2xl font-black uppercase tracking-wider mb-2 border-b-2 border-white pb-2">🚨 ALERT 🚨</h1>
+        <h2 class="text-xl font-bold mb-4 leading-tight">${title}</h2>
+        <p class="text-sm font-medium bg-black/40 p-3 rounded-xl border border-red-400 mb-6">${message}</p>
+        <p class="text-xs font-bold opacity-75 animate-bounce">(Tap anywhere to dismiss)</p>
     `;
     
     modal.onclick = () => {
         modal.remove();
     };
     
-    document.body.appendChild(modal);
+    const shell = document.querySelector('.mobile-shell');
+    if(shell) {
+        // Ensure the shell is relative so absolute fits inside
+        shell.style.position = 'relative';
+        shell.appendChild(modal);
+    } else {
+        document.body.appendChild(modal);
+    }
+    
     if(window.lucide) lucide.createIcons();
     playLoudSiren();
 }
+
 
 if (socket) {
     socket.on('emergency_broadcast', (alertData) => {
