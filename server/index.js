@@ -301,7 +301,7 @@ server.listen(PORT, () => console.log(`Server running at http://localhost:${PORT
 // =====================================================================
 // STRICT 100% REAL-TIME LIVE DATA INGESTION WORKER (ZERO MOCK DATA)
 // =====================================================================
-const https = require('https');
+// https already required
 
 // Helper to fetch JSON from live endpoints (using unverified SSL context for robust cross-platform execution as requested)
 const fetchLiveJSON = (url) => {
