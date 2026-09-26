@@ -837,3 +837,119 @@ socket.on("live_hazard_update", (data) => {
     
     console.log(`Plotted ${data.hazards.length} 100% REAL live hazards on map.`);
 });
+
+
+
+// =====================================================================
+// HACKATHON DEMO SIMULATION CONTROLLER (SYNTHETIC DATA PIPELINE)
+// =====================================================================
+let demoStage = 0;
+let demoInterval = null;
+
+const DEMO_STAGES = [
+    "STAGE 0: Normal Conditions. Weather is clear.",
+    "STAGE 1: Rainfall intensity increases. Weather API anomaly detected.",
+    "STAGE 2: IoT Water-level sensors begin rising rapidly in Sector A.",
+    "STAGE 3: Satellite imagery detects surface-water expansion.",
+    "STAGE 4: First citizen incident reports arrive.",
+    "STAGE 5: AI fuses Multimodal Evidence (Weather + IoT + Satellite + NLP).",
+    "STAGE 6: Zone A marked as HIGH CONFIDENCE Flood Zone.",
+    "STAGE 7: Zone C marked as LOW CONFIDENCE (Out-of-Distribution/Conflict).",
+    "STAGE 8: AI routes prioritized locations to Human Review Queue.",
+    "STAGE 9: Operator inspects multimodal evidence.",
+    "STAGE 10: Operator dispatches NDRF units to confirmed zones.",
+    "STAGE 11: Final Situation Summary Generated."
+];
+
+window.startDemoSimulation = function() {
+    demoStage = 0;
+    document.getElementById('demo-stage-text').innerText = DEMO_STAGES[0];
+    document.getElementById('demo-progress').style.width = '0%';
+    pushAlert("SIMULATION STARTED", "Live data paused. Synthetic data injection active.", "warning");
+    
+    // Clear live hazards to make map clean for demo
+    if (liveHazardLayer) liveHazardLayer.clearLayers();
+    STATE.sosRequests = [];
+    renderSmartInbox();
+}
+
+window.nextDemoStage = function() {
+    if (demoStage >= 11) return;
+    demoStage++;
+    document.getElementById('demo-stage-text').innerText = DEMO_STAGES[demoStage];
+    document.getElementById('demo-progress').style.width = ((demoStage/11)*100) + '%';
+    
+    // Execute specific stage visual effects
+    if (demoStage === 2) {
+        pushAlert("SENSOR ANOMALY", "Water level rising rapidly at HYD-042.", "warning");
+    }
+    if (demoStage === 3) {
+        // Draw fake satellite flood polygon
+        L.polygon([
+            [17.43, 78.36], [17.44, 78.38], [17.42, 78.39]
+        ], {color: 'blue', fillColor: '#00A8E8', fillOpacity: 0.4}).addTo(STATE.map).bindTooltip("Simulated Flood Extent (Satellite)");
+        pushAlert("SATELLITE DETECTION", "Flood pixels detected (Confidence: 86%)", "warning");
+    }
+    if (demoStage === 4) {
+        // Inject fake SOS
+        const fakeSOS = {
+            id: 'SIM-9901',
+            userName: 'Citizen Report (Simulated)',
+            peopleCount: 6,
+            emergencyType: 'Rising Flood Water',
+            message: 'Water entering underpass near Sector A. Vehicles stranded.',
+            lat: 17.435,
+            lng: 78.375,
+            locationDesc: 'Hyderabad Flood Corridor',
+            triageScore: 92,
+            status: 'PENDING'
+        };
+        STATE.sosRequests.unshift(fakeSOS);
+        renderSmartInbox();
+    }
+    if (demoStage === 5) {
+        pushAlert("AI FUSION ACTIVE", "Correlating Satellite + IoT + NLP...", "info");
+    }
+    if (demoStage === 7) {
+        // Inject Out-Of-Distribution SOS
+        const fakeSOS2 = {
+            id: 'SIM-OOD-2',
+            userName: 'Ambiguous Report',
+            peopleCount: 0,
+            emergencyType: 'Unknown',
+            message: 'Unusual ground conditions, but weather is clear.',
+            lat: 17.425,
+            lng: 78.360,
+            locationDesc: 'Zone C Infrastructure',
+            triageScore: 82,
+            status: 'PENDING'
+        };
+        STATE.sosRequests.unshift(fakeSOS2);
+        renderSmartInbox();
+        pushAlert("OOD ANOMALY", "Low confidence event detected. Routing to human review.", "error");
+    }
+    if (demoStage === 8) {
+        // Highlight the inbox
+        document.getElementById('smart-inbox-list').classList.add('animate-pulse');
+        setTimeout(() => document.getElementById('smart-inbox-list').classList.remove('animate-pulse'), 3000);
+    }
+    if (demoStage === 9) {
+        // Automatically open the evidence modal
+        openEvidenceModal('SIM-9901');
+    }
+    if (demoStage === 10) {
+        document.getElementById('evidence-modal').style.display = 'none';
+        assignRescueTeam('SIM-9901');
+    }
+    if (demoStage === 11) {
+        pushAlert("INCIDENT INTELLIGENCE REPORT", "Assessment Confirmed. 1 Zone Affected. 6 Evacuated.", "success");
+    }
+}
+
+window.fastDemo = function() {
+    startDemoSimulation();
+    demoInterval = setInterval(() => {
+        nextDemoStage();
+        if (demoStage >= 11) clearInterval(demoInterval);
+    }, 4000); // Progress every 4 seconds
+}
