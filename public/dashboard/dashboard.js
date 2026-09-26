@@ -528,6 +528,58 @@ socket.on("new_sos", (sos) => {
     STATE.sosRequests.unshift(sos);
     renderAll();
     pushAlert("NEW SOS RECEIVED", `Signal ${sos.id} detected near ${sos.locationDesc}`, "error");
+
+    // Massive Cinematic Popup for Incoming SOS
+    const sosModal = document.createElement('div');
+    sosModal.className = 'fixed inset-0 z-[9999] bg-red-950/90 backdrop-blur-lg flex flex-col items-center justify-center p-6 text-center text-white cursor-pointer';
+    sosModal.innerHTML = `
+        <div class="animate-ping absolute inset-0 bg-red-600/20 rounded-full w-96 h-96 m-auto"></div>
+        <div class="relative z-10 animate-pulse bg-red-600 rounded-full p-6 mb-6 shadow-[0_0_100px_rgba(220,38,38,0.8)] border-4 border-white">
+            <i data-lucide="radio" class="w-24 h-24 text-white"></i>
+        </div>
+        <h1 class="relative z-10 text-5xl font-black uppercase tracking-widest mb-2 text-white drop-shadow-[0_0_20px_rgba(255,0,0,1)]">CRITICAL DISTRESS SIGNAL DETECTED</h1>
+        <h2 class="relative z-10 text-2xl font-bold mb-6 text-red-200">INCOMING TRANSMISSION FROM CITIZEN DEVICE</h2>
+        
+        <div class="relative z-10 w-[500px] bg-black/50 border-2 border-red-500 rounded-xl p-6 text-left shadow-2xl">
+            <div class="flex items-center justify-between border-b border-red-500/30 pb-3 mb-3">
+                <span class="text-xs font-bold text-red-400 uppercase tracking-widest">Signal ID: ${sos.id}</span>
+                <span class="text-xs font-mono font-black text-white bg-red-600 px-2 py-1 rounded">TRG ${Math.floor(sos.triageScore)}</span>
+            </div>
+            
+            <p class="text-xs text-red-300 uppercase font-bold mb-1">Citizen Details:</p>
+            <p class="text-lg text-white font-bold mb-4">${sos.userName || 'Unknown'} (${sos.peopleCount || 1} Persons Trapped)</p>
+            
+            <p class="text-xs text-red-300 uppercase font-bold mb-1">Live Telemetry:</p>
+            <p class="text-sm text-white mb-4">📍 ${sos.locationDesc}</p>
+            
+            <p class="text-xs text-red-300 uppercase font-bold mb-1">Extracted Payload:</p>
+            <p class="text-md text-red-100 font-mono italic bg-red-950/50 p-3 rounded border border-red-500/20">"${sos.message}"</p>
+        </div>
+        <p class="relative z-10 text-sm font-bold opacity-75 mt-8 animate-bounce">(CLICK ANYWHERE TO ACKNOWLEDGE AND ROUTE DISPATCH)</p>
+    `;
+    
+    // Play an alert sound
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime + 0.5);
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime + 1.0);
+        osc.connect(audioCtx.destination);
+        osc.start();
+        setTimeout(() => osc.stop(), 1500);
+    } catch(e) {}
+    
+    sosModal.onclick = () => {
+        sosModal.remove();
+        switchPage('command'); 
+        selectIncident(sos.id);
+    };
+    
+    document.body.appendChild(sosModal);
+    if(window.lucide) lucide.createIcons();
+
     
     // Automatically fly to the new SOS on the map if it's open
     if (STATE.map) {
