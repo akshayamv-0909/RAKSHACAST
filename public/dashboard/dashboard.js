@@ -261,7 +261,17 @@ function renderSmartInbox() {
                 <span class="text-blue-600 font-mono">${timeStr}</span>
             </p>
             <p class="text-[11px] text-[#E8EAED] bg-[#080A0D] p-2 rounded border border-[#30363D] font-medium">"${sos.message || 'Help requested.'}"</p>
-            <div class="flex items-center justify-between pt-1 text-[10px] text-[#7A818A] border-t border-slate-100 mt-2">
+            
+            <div class="flex items-center justify-between mt-2 pt-2 border-t border-[#30363D]">
+                <div class="flex items-center gap-1 ${sos.triageScore > 75 ? 'text-[#FF9800]' : 'text-[#22C55E]'}">
+                    <i data-lucide="${sos.triageScore > 75 ? 'alert-triangle' : 'check-circle'}" class="w-3 h-3"></i>
+                    <span class="text-[8px] font-bold uppercase">${sos.triageScore > 75 ? 'High Uncertainty (44%) - Cloud Occlusion' : 'Low Uncertainty (12%)'}</span>
+                </div>
+                <button onclick="event.stopPropagation(); document.getElementById('evidence-modal').style.display='flex';" class="text-[9px] bg-[#181C21] hover:bg-[#30363D] text-[#E8EAED] border border-[#30363D] px-2 py-1 rounded font-bold uppercase flex items-center gap-1 transition">
+                    <i data-lucide="search" class="w-3 h-3"></i> Inspect Evidence
+                </button>
+            </div>
+            <div class="flex items-center justify-between pt-1 text-[10px] text-[#7A818A] border-t border-[#30363D] mt-2">
                 <span>Assigned: <b class="${sos.assignedTeam && sos.assignedTeam !== 'Pending' ? 'text-[#00A8E8]' : 'text-[#7A818A]'}">${sos.assignedTeam || 'Pending'}</b></span>
                 ${dispatchBtn}
             </div>
