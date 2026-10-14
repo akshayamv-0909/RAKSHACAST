@@ -1,6 +1,18 @@
+const DEFAULT_INCIDENTS = [
+    { id: "SOS-9081", userName: "Rajesh Sharma (Elderly + Infant)", phone: "+91 98765 43210", emergencyType: "Flash Flood - Rapid Inundation", peopleCount: 5, lat: 17.4250, lng: 78.3550, locationDesc: "Madhapur Low Ridge, Choke Point B", hasInfant: true, hasElderly: true, hasMedical: true, message: "Water reached 1st floor balcony. Need boat evacuation immediately.", status: "NEW", priority: "CRITICAL", triageScore: 92, assignedTeam: "Pending", submittedAt: new Date(Date.now() - 4 * 60000).toISOString() },
+    { id: "SOS-8834", userName: "Pooja Varma", phone: "+91 98111 22334", emergencyType: "Urban Waterlogging", peopleCount: 3, lat: 17.4180, lng: 78.3450, locationDesc: "Gachibowli Flyover Underpass", hasInfant: false, hasElderly: true, hasMedical: false, message: "Car submerged up to windshield. 3 adults stranded on roof.", status: "NEW", priority: "HIGH", triageScore: 76, assignedTeam: "Pending", submittedAt: new Date(Date.now() - 12 * 60000).toISOString() },
+    { id: "SOS-7612", userName: "Sunil Reddy (Dialysis Patient)", phone: "+91 98450 11223", emergencyType: "Medical Emergency / Power Outage", peopleCount: 2, lat: 17.4310, lng: 78.3610, locationDesc: "Kondapur Sector 4", hasInfant: false, hasElderly: false, hasMedical: true, message: "Oxygen concentrator running on backup battery. Medical transport required.", status: "NEW", priority: "CRITICAL", triageScore: 88, assignedTeam: "Pending", submittedAt: new Date(Date.now() - 19 * 60000).toISOString() },
+    { id: "SOS-6520", userName: "Amit Patel", phone: "+91 97234 56789", emergencyType: "Structural Collapse Risk", peopleCount: 4, lat: 17.4120, lng: 78.3380, locationDesc: "Hitec City Zone 2", hasInfant: true, hasElderly: false, hasMedical: false, message: "Boundary wall collapsed, flood water entering basement.", status: "NEW", priority: "HIGH", triageScore: 68, assignedTeam: "Pending", submittedAt: new Date(Date.now() - 35 * 60000).toISOString() }
+];
+
+const DEFAULT_TEAMS = [
+    { id: "TM-01", name: "NDRF Bravo Alpha (Motor Boat #4)", type: "Inflatable Rescue Boat (IRB)", personnel: 6, status: "DISPATCHED", currentTask: "Responding to SOS-9081", lat: 17.4220, lng: 78.3510, equipment: JSON.stringify(["40HP OBM Engine", "Oxygen Cylinder"]) },
+    { id: "TM-02", name: "SDRF Amphibious Unit 2", type: "All-Terrain Amphibious Vehicle", personnel: 4, status: "AVAILABLE", currentTask: "Patrolling High Ridge", lat: 17.4190, lng: 78.3490, equipment: JSON.stringify(["Winch Cable", "Life Jackets"]) }
+];
+
 const STATE = {
-    sosRequests: [],
-    rescueTeams: [],
+    sosRequests: [...DEFAULT_INCIDENTS],
+    rescueTeams: [...DEFAULT_TEAMS],
     selectedIncident: null,
     map: null,
     markers: {},
@@ -11,16 +23,6 @@ const socket = io();
 
 // Safe element lookup
 const getEl = id => document.getElementById(id);
-const connIndicator = getEl("conn-indicator");
-const connText = getEl("conn-text");
-const statActive = getEl("stat-active");
-const statTeams = getEl("stat-teams");
-const alertsFeed = getEl("alerts-feed") || getEl("alerts-list");
-const incidentDetailsPanel = getEl("incident-details");
-const inboxList = getEl("inbox-list");
-const bulkActionBar = getEl("bulk-action-bar");
-const selectedCountEl = getEl("selected-count");
-const bulkTeamSelect = getEl("bulk-team-select");
 
 // Connection Handling
 socket.on("connect", () => {
@@ -33,6 +35,7 @@ socket.on("connect", () => {
     }
     pushAlert("Connection Secured", "Live telemetry stream active.", "success");
 });
+
 socket.on("disconnect", () => {
     const ind = getEl("conn-indicator");
     const txt = getEl("conn-text");
@@ -50,18 +53,20 @@ window.switchPage = function(pageId) {
     document.querySelectorAll('.page-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
     
-    document.getElementById(`page-${pageId}`).classList.add('active');
+    const targetPage = document.getElementById(`page-${pageId}`);
+    if (targetPage) targetPage.classList.add('active');
     
-    // Find the corresponding tab and make active
     const tabs = document.querySelectorAll('.nav-tab');
     tabs.forEach(tab => {
-        if(tab.getAttribute('onclick').includes(`'${pageId}'`)) {
+        const attr = tab.getAttribute('onclick') || '';
+        if (attr.includes(`'${pageId}'`)) {
             tab.classList.add('active');
         }
     });
 
-    if (pageId === 'map' && STATE.map) {
+    if (STATE.map) {
         setTimeout(() => STATE.map.invalidateSize(), 100);
+        setTimeout(() => STATE.map.invalidateSize(), 300);
     }
 };
 
@@ -73,25 +78,34 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function initMap() {
+    const mapContainer = getEl('map');
+    if (!mapContainer) return;
+
+    if (STATE.map) {
+        STATE.map.remove();
+        STATE.map = null;
+    }
+
     STATE.map = L.map('map', { zoomControl: false }).setView([17.4207, 78.3508], 13);
     L.control.zoom({ position: 'bottomright' }).addTo(STATE.map);
     
-    // High-contrast Dark GIS Tactical Tile Layer (CartoDB Dark Matter)
+    // High-visibility Base Tile Layers
+    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+    });
+
     const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; CartoDB &copy; OpenStreetMap',
         maxZoom: 19
-    });
-    
-    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
     });
     
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Tiles &copy; Esri'
     });
     
-    // Add default tactical dark layer
-    darkLayer.addTo(STATE.map);
+    // Use streetLayer as default so roads, waterways, and landmarks are brightly visible
+    streetLayer.addTo(STATE.map);
     
     // Auto-invalidate size to guarantee map expands to full container
     setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 150);
@@ -111,60 +125,61 @@ function initMap() {
                     opacity: 0.7,
                     zIndex: 1000
                 }).addTo(radarLayer);
-                console.log("RainViewer Radar loaded for timestamp:", latestTs);
             }
         })
-        .catch(e => console.error("RainViewer load failed:", e));
+        .catch(e => console.warn("RainViewer load note:", e.message));
 
     const baseMaps = {
-        "ArcGIS Tactical Dark": darkLayer,
-        "ISRO Bhuvan / Street View": streetLayer,
-        "INSAT / Satellite Imagery": satelliteLayer
+        "🗺️ ISRO Bhuvan / Street View": streetLayer,
+        "🛰️ INSAT / Satellite Imagery": satelliteLayer,
+        "🌑 Tactical Dark Matter": darkLayer
     };
 
     const overlayMaps = {
-        "🔴 LIVE Doppler Weather Radar (RainViewer)": radarLayer
+        "🔴 LIVE Doppler Weather Radar": radarLayer
     };
 
-    L.control.layers(baseMaps, overlayMaps, {position: 'topright'}).addTo(STATE.map);
+    L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(STATE.map);
 
     drawHazardZones();
 
-    const drawnItems = new L.FeatureGroup();
-    STATE.map.addLayer(drawnItems);
-    STATE.drawControl = new L.Control.Draw({
-        edit: { featureGroup: drawnItems },
-        draw: { marker: false, polyline: false, circlemarker: false, circle: true, rectangle: true, polygon: true }
-    });
-    
-    STATE.map.on(L.Draw.Event.CREATED, function (e) {
-        drawnItems.clearLayers();
-        const layer = e.layer;
-        drawnItems.addLayer(layer);
-        const geojson = layer.toGeoJSON();
-        sendMassAlert(geojson);
-    });
+    if (typeof L.Control.Draw !== 'undefined') {
+        const drawnItems = new L.FeatureGroup();
+        STATE.map.addLayer(drawnItems);
+        STATE.drawControl = new L.Control.Draw({
+            edit: { featureGroup: drawnItems },
+            draw: { marker: false, polyline: false, circlemarker: false, circle: true, rectangle: true, polygon: true }
+        });
+        
+        STATE.map.on(L.Draw.Event.CREATED, function (e) {
+            drawnItems.clearLayers();
+            const layer = e.layer;
+            drawnItems.addLayer(layer);
+            const geojson = layer.toGeoJSON();
+            sendMassAlert(geojson);
+        });
+    }
 }
 
 function drawHazardZones() {
     const center = [17.4207, 78.3508];
-    L.circle([center[0] - 0.005, center[1] - 0.005], { radius: 1200, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, dashArray: '5, 5' }).addTo(STATE.map);
-    L.circle([center[0] + 0.002, center[1] + 0.006], { radius: 1500, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.15, weight: 2 }).addTo(STATE.map);
-    L.circle([center[0] + 0.006, center[1] - 0.002], { radius: 800, color: '#a855f7', fillColor: '#a855f7', fillOpacity: 0.2 }).addTo(STATE.map);
-    L.circle([center[0] - 0.004, center[1] + 0.008], { radius: 600, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(STATE.map);
+    L.circle([center[0] - 0.005, center[1] - 0.005], { radius: 1200, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.25, weight: 2, dashArray: '5, 5' }).addTo(STATE.map).bindTooltip("🌊 Flood Surge Zone (1.2 km)", { permanent: false, direction: "top" });
+    L.circle([center[0] + 0.002, center[1] + 0.006], { radius: 1500, color: '#dc2626', fillColor: '#ef4444', fillOpacity: 0.22, weight: 2 }).addTo(STATE.map).bindTooltip("⚠️ High Inundation Risk (1.5 km)", { permanent: false, direction: "top" });
+    L.circle([center[0] + 0.006, center[1] - 0.002], { radius: 800, color: '#9333ea', fillColor: '#a855f7', fillOpacity: 0.25, weight: 2 }).addTo(STATE.map).bindTooltip("⚡ Lightning & Heavy Rain (800m)", { permanent: false, direction: "top" });
+    L.circle([center[0] - 0.004, center[1] + 0.008], { radius: 600, color: '#d97706', fillColor: '#f59e0b', fillOpacity: 0.25, weight: 2 }).addTo(STATE.map).bindTooltip("💨 Wind Shear Hazard (600m)", { permanent: false, direction: "top" });
     
-    const iconHtml = `<div style="background:#22c55e; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 10px rgba(0,0,0,0.5)"></div>`;
-    L.marker(center, { icon: L.divIcon({ html: iconHtml, className: '' }) }).addTo(STATE.map).bindTooltip("Command Post - Sector 1", { permanent: true, direction: "bottom" });
+    const iconHtml = `<div style="background:#16a34a; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 0 12px rgba(22,163,74,0.8); animation: pulse 2s infinite;"></div>`;
+    L.marker(center, { icon: L.divIcon({ html: iconHtml, className: '' }) }).addTo(STATE.map).bindTooltip("🚩 NDRF 10th Battalion Command Post", { permanent: true, direction: "bottom" });
 }
 
 window.createMassAlert = function() {
     switchPage('map');
-    STATE.map.addControl(STATE.drawControl);
+    if (STATE.drawControl) STATE.map.addControl(STATE.drawControl);
     pushAlert("Draw Tools Activated", "Select an area on the map to broadcast evacuation alert.", "warning");
 }
 
 async function sendMassAlert(geojson) {
-    STATE.map.removeControl(STATE.drawControl);
+    if (STATE.drawControl) STATE.map.removeControl(STATE.drawControl);
     const msg = prompt("Enter Emergency Broadcast Message for selected area:");
     if (!msg) return;
 
@@ -183,11 +198,11 @@ async function fetchState() {
         const res = await fetch("/api/state");
         if (res.ok) {
             const data = await res.json();
-            STATE.sosRequests = data.sosRequests || [];
-            STATE.rescueTeams = data.rescueTeams || [];
+            STATE.sosRequests = (data.sosRequests && data.sosRequests.length > 0) ? data.sosRequests : DEFAULT_INCIDENTS;
+            STATE.rescueTeams = (data.rescueTeams && data.rescueTeams.length > 0) ? data.rescueTeams : DEFAULT_TEAMS;
             renderAll();
             
-            // Populate bulk select
+            const bulkTeamSelect = getEl("bulk-team-select");
             if (bulkTeamSelect) {
                 bulkTeamSelect.innerHTML = '<option value="">Select Rescue Unit...</option>';
                 STATE.rescueTeams.forEach(t => {
@@ -205,8 +220,13 @@ async function fetchState() {
                 if (elHum) elHum.innerText = data.telemetry.humidity + '%';
                 if (elWind) elWind.innerText = data.telemetry.windSpeed + ' km/h';
             }
+        } else {
+            renderAll();
         }
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.warn("fetchState fallback to defaults:", e.message);
+        renderAll();
+    }
 }
 
 function renderAll() {
@@ -249,7 +269,9 @@ function renderMapMarkers() {
 }
 
 function renderSmartInbox() {
-    inboxList.innerHTML = "";
+    const list = getEl("inbox-list");
+    if (!list) return;
+    list.innerHTML = "";
     
     const sorted = [...STATE.sosRequests].sort((a,b) => b.triageScore - a.triageScore);
     
@@ -303,9 +325,9 @@ function renderSmartInbox() {
                 ${dispatchBtn}
             </div>
         `;
-        inboxList.appendChild(el);
+        list.appendChild(el);
     });
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
     updateBulkActionBar();
 }
 
@@ -707,8 +729,71 @@ async function sendBroadcast() {
     }
 }
 
+window.sendDashboardSOS = async function() {
+    const title = (getEl('broadcast-title') ? getEl('broadcast-title').value : "") || "RED CRITICAL: Immediate SOS Beacon";
+    const msg = (getEl('broadcast-msg') ? getEl('broadcast-msg').value : "") || "Flash flood surge wave imminent. Move to elevated shelters immediately.";
+    
+    const btn = document.querySelector('button[onclick="sendDashboardSOS()"]');
+    let originalText = '';
+    if (btn) {
+        originalText = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="loader" class="w-3 h-3 animate-spin"></i> TRANSMITTING...';
+        btn.classList.add('opacity-80');
+    }
 
+    try {
+        const payload = {
+            userName: "NDRF Command Broadcast Unit",
+            phone: "+91 1078 (Disaster Response)",
+            emergencyType: "Evacuation Beacon (" + title + ")",
+            peopleCount: 184,
+            locationDesc: "Lowland Sector Corridors & Basins",
+            lat: 17.4207,
+            lng: 78.3508,
+            hasInfant: true,
+            hasElderly: true,
+            hasMedical: true,
+            message: msg
+        };
 
+        await fetch("/api/sos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        await fetch("/api/admin/alert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                type: "CRITICAL",
+                title: "🚨 SOS DISTRESS BEACON: " + title,
+                message: msg
+            })
+        });
+
+        pushAlert("SOS BEACON TRANSMITTED", "Beacon deployed to citizen network & active incident triage.", "error");
+
+        if (btn) {
+            btn.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i> BEACON SENT';
+            btn.classList.remove('bg-[#1976D2]', 'hover:bg-[#1565C0]');
+            btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.add('bg-[#1976D2]', 'hover:bg-[#1565C0]');
+                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700', 'opacity-80');
+                if (window.lucide) lucide.createIcons();
+            }, 3000);
+        }
+    } catch(e) {
+        console.error("Failed to broadcast SOS:", e);
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.classList.remove('opacity-80');
+        }
+        pushAlert("Transmission Failed", e.message, "error");
+    }
+};
 
 window.openEvidenceModal = function(id) {
     const sos = STATE.sosRequests.find(s => s.id === id);

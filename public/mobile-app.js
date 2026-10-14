@@ -354,9 +354,152 @@ function showBoomWarning(title, message) {
 }
 
 
+function showCitizenDistressModal(sos) {
+    const modal = document.createElement('div');
+    modal.className = 'absolute inset-0 z-[9999] bg-red-700/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white cursor-pointer rounded-[32px] overflow-hidden';
+    modal.innerHTML = `
+        <div class="animate-pulse bg-red-950 rounded-full p-4 mb-3 shadow-[0_0_50px_rgba(255,0,0,0.8)] border-2 border-red-400">
+            <i data-lucide="radio" class="w-14 h-14 text-white"></i>
+        </div>
+        <div class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-white text-red-700 mb-2 font-mono">
+            LIVE DISTRESS BEACON DETECTED
+        </div>
+        <h2 class="text-xl font-black mb-1 leading-tight text-white">${sos.emergencyType || 'Emergency SOS Distress Signal'}</h2>
+        <p class="text-xs text-red-100 font-mono mb-3">Signal ID: ${sos.id} • ${sos.peopleCount || 1} Persons Trapped</p>
+        
+        <div class="bg-black/40 p-3 rounded-xl border border-red-400 text-left w-full space-y-2 mb-4">
+            <div class="flex items-center justify-between text-[11px] text-red-200">
+                <span>📍 Location:</span>
+                <span class="font-bold text-white text-right">${sos.locationDesc || sos.location || 'Reported Sector'}</span>
+            </div>
+            <div class="text-[11px] text-red-100 bg-red-900/40 p-2 rounded border border-red-500/30 font-medium">
+                "${sos.message || 'Emergency rescue extraction requested.'}"
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-emerald-300 pt-1 border-t border-red-500/30">
+                <span>NDRF Status:</span>
+                <span class="font-bold uppercase tracking-wider">${sos.status === 'TEAM_EN_ROUTE' ? 'Rescue Unit Dispatched' : 'Queued at NDRF Command'}</span>
+            </div>
+        </div>
+        
+        <button onclick="this.closest('.absolute').remove(); navigate('alerts');" class="w-full py-2.5 bg-white text-red-700 font-extrabold rounded-xl text-xs shadow-lg uppercase tracking-wider hover:bg-red-50 active:scale-95 transition">
+            View in Alerts & Bulletins
+        </button>
+        <p class="text-[10px] font-bold text-red-200 mt-2.5 opacity-75">(Tap anywhere to dismiss)</p>
+    `;
+    
+    modal.onclick = (e) => {
+        if (e.target.tagName !== 'BUTTON') {
+            modal.remove();
+        }
+    };
+    
+    const shell = document.querySelector('.mobile-shell');
+    if (shell) {
+        shell.style.position = 'relative';
+        shell.appendChild(modal);
+    } else {
+        document.body.appendChild(modal);
+    }
+    
+    if (window.lucide) lucide.createIcons();
+    playLoudSiren();
+}
+
+function handleIncomingBroadcast(alertData) {
+    const alertId = alertData.id || `ALT-BRD-${Date.now().toString().slice(-4)}`;
+    const newAlert = {
+        id: alertId,
+        title: alertData.title || "RED CRITICAL: Emergency Warning Broadcast",
+        area: alertData.area || "City Wide (Emergency Corridor)",
+        severity: alertData.type || alertData.severity || "CRITICAL",
+        timeIssued: "Just now",
+        instructions: alertData.message || "Immediate mandatory evacuation along designated high-ridge routes."
+    };
+
+    if (!STATE.alerts.some(a => a.id === alertId)) {
+        STATE.alerts.unshift(newAlert);
+    }
+
+    if (!STATE.alertDeliveryHistory.some(d => d.alertId === alertId)) {
+        STATE.alertDeliveryHistory.unshift({
+            id: `DEL-${Date.now().toString().slice(-4)}`,
+            alertId: alertId,
+            title: newAlert.title,
+            severity: newAlert.severity,
+            timestamp: "Just now",
+            recipient: STATE.citizenProfile ? STATE.citizenProfile.phone : "All Citizens",
+            channels: {
+                inApp: "DELIVERED",
+                push: "DELIVERED (FCM)",
+                sms: "BROADCAST_SENT",
+                call: "DELIVERED"
+            }
+        });
+        saveSettingsToStorage();
+    }
+
+    showBoomWarning(alertData.title || "NDRF WARNING", alertData.message || "Immediate Evacuation Required.");
+    showToast(`🚨 BROADCAST: ${newAlert.title}`, "critical");
+
+    if (STATE.currentTab === "alerts" || STATE.currentTab === "home" || STATE.currentTab === "authority") {
+        navigate(STATE.currentTab);
+    }
+}
+
+function handleIncomingSOS(sos) {
+    if (!STATE.sosQueue.some(s => s.id === sos.id)) {
+        STATE.sosQueue.unshift(sos);
+    }
+
+    const sosAlertId = `ALT-${sos.id}`;
+    if (!STATE.alerts.some(a => a.id === sosAlertId || a.id === sos.id)) {
+        STATE.alerts.unshift({
+            id: sos.id,
+            title: `🚨 CITIZEN DISTRESS BEACON: ${sos.emergencyType || 'Flash Flood Extraction'}`,
+            area: sos.locationDesc || sos.location || "Nearby Lowland Basin",
+            severity: sos.priority || "CRITICAL",
+            timeIssued: "Just now",
+            instructions: `${sos.userName || 'Citizen'} (${sos.peopleCount || 1} trapped) — "${sos.message}". NDRF Command notified.`
+        });
+    }
+
+    if (STATE.isAuthority) {
+        showToast("🚨 New SOS Alert Received: " + sos.id, "error");
+        triggerAdminIncidentNotification(sos);
+    } else {
+        showToast(`🚨 Emergency SOS Signal: ${sos.userName} (${sos.locationDesc || 'Sector 1'})`, "critical");
+        showCitizenDistressModal(sos);
+    }
+
+    if (STATE.currentTab === "alerts" || STATE.currentTab === "home" || STATE.currentTab === "authority") {
+        navigate(STATE.currentTab);
+    }
+}
+
+function handleIncidentUpdated(sos) {
+    const idx = STATE.sosQueue.findIndex(s => s.id === sos.id);
+    if (idx > -1) {
+        STATE.sosQueue[idx] = sos;
+    }
+
+    const alertIdx = STATE.alerts.findIndex(a => a.id === sos.id || a.id === `ALT-${sos.id}`);
+    if (alertIdx > -1) {
+        STATE.alerts[alertIdx].instructions = `${sos.userName} — Rescue Unit "${sos.assignedTeam}" is EN ROUTE (Status: ${sos.status})!`;
+    }
+
+    showToast(`🚒 Rescue Unit "${sos.assignedTeam}" dispatched to ${sos.id}!`, "success");
+
+    if (STATE.currentTab === "alerts" || STATE.currentTab === "home" || STATE.currentTab === "authority") {
+        navigate(STATE.currentTab);
+    }
+}
+
 if (socket) {
     socket.on('emergency_broadcast', (alertData) => {
-        showBoomWarning(alertData.title || "NDRF WARNING", alertData.message || "Immediate Evacuation Required.");
+        handleIncomingBroadcast(alertData);
+    });
+    socket.on('mass_alert', (alertData) => {
+        handleIncomingBroadcast(alertData);
     });
 }
 
@@ -368,7 +511,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await res.json();
             STATE.sosQueue = data.sosRequests || [];
             STATE.shelters = data.shelters || STATE.shelters;
-            STATE.alerts = data.alerts || STATE.alerts;
+            if (data.alerts && data.alerts.length > 0) {
+                STATE.alerts = data.alerts.map(a => ({
+                    id: a.id,
+                    title: a.title,
+                    area: a.area || "City Wide",
+                    severity: a.severity || "CRITICAL",
+                    timeIssued: a.timestamp ? new Date(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recently",
+                    instructions: a.message || a.instructions || "Follow civil defense guidelines."
+                }));
+            }
         }
     } catch(e) { console.error("Could not load backend state", e); }
     loadCachedWeather();
@@ -376,16 +528,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Setup Socket.IO
     if (socket) {
         socket.on("new_sos", (sos) => {
-            STATE.sosQueue.unshift(sos);
-            if (STATE.isAuthority) {
-                showToast("New SOS Alert Received: " + sos.id, "error");
-                navigate(STATE.currentTab);
-            }
+            handleIncomingSOS(sos);
         });
         socket.on("incident_updated", (sos) => {
-            const idx = STATE.sosQueue.findIndex(s => s.id === sos.id);
-            if (idx > -1) STATE.sosQueue[idx] = sos;
-            if (STATE.isAuthority) navigate(STATE.currentTab);
+            handleIncidentUpdated(sos);
         });
     }
     
@@ -2093,11 +2239,48 @@ function renderAlertsScreen() {
             <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
                 <div>
                     <h2 class="text-sm font-bold text-slate-900">Disaster Warnings & Bulletins</h2>
-                    <p class="text-[10px] text-slate-500">Ministry of Earth Sciences / IMD</p>
+                    <p class="text-[10px] text-slate-500">Ministry of Earth Sciences / IMD / NDRF Command</p>
+                </div>
+                <div class="flex items-center space-x-1.5 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-[9px] font-bold text-emerald-800 uppercase">Live Interlink</span>
                 </div>
             </div>
 
+            <!-- Active Citizen Distress Beacons (Live Queue from Dashboard & Mesh) -->
+            ${STATE.sosQueue && STATE.sosQueue.length > 0 ? `
+                <div class="bg-red-50/90 border border-red-200 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-1.5">
+                            <i data-lucide="radio" class="w-4 h-4 text-red-600 animate-pulse"></i>
+                            <h3 class="text-xs font-black uppercase text-red-900 tracking-wider">Active Distress Beacons</h3>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-red-200 text-red-800">${STATE.sosQueue.length} Active</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${STATE.sosQueue.slice(0, 5).map(s => `
+                            <div class="p-3 bg-white rounded-xl border border-red-200 shadow-xs space-y-1.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-extrabold text-slate-900 text-xs">${s.userName}</span>
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold ${s.status === 'TEAM_EN_ROUTE' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300'}">
+                                        ${s.status === 'TEAM_EN_ROUTE' ? '✓ EN ROUTE' : '🚨 QUEUED (TRIAGE ' + Math.floor(s.triageScore || 85) + ')'}
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-600 font-medium">📍 ${s.locationDesc || s.location || 'Urban Lowland Sector'} • 👥 ${s.peopleCount || 1} Trapped</p>
+                                <p class="text-[11px] text-slate-800 bg-slate-50 p-2 rounded-lg border border-slate-200 italic font-medium">"${s.message || 'Emergency rescue extraction requested.'}"</p>
+                                <div class="text-[10px] text-slate-500 flex justify-between items-center pt-1 border-t border-slate-100 font-mono">
+                                    <span>Assigned Unit: <b class="text-blue-900">${s.assignedTeam || 'Pending Assignment'}</b></span>
+                                    <span class="text-slate-400 font-bold">${s.id}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            <!-- Official Disaster Bulletins -->
             <div class="space-y-2 text-xs">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block px-1">Official Disaster Bulletins</span>
                 ${STATE.alerts.map(a => `
                     <div class="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-xs">
                         <div class="flex items-center justify-between">
@@ -2108,6 +2291,17 @@ function renderAlertsScreen() {
                         <p class="text-[11px] text-slate-700 leading-relaxed">${a.instructions}</p>
                     </div>
                 `).join('')}
+            </div>
+
+            <!-- Emergency Trigger Quick Action -->
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+                <div>
+                    <h4 class="text-xs font-bold text-blue-950">Need Immediate Rescue Extraction?</h4>
+                    <p class="text-[10px] text-blue-800">Transmits GPS coordinates directly to NDRF Command</p>
+                </div>
+                <button onclick="navigate('sos')" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow transition active:scale-95 shrink-0">
+                    Send SOS
+                </button>
             </div>
         </div>
     `;

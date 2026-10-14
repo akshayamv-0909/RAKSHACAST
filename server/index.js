@@ -199,27 +199,51 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (pathname === "/api/state" && req.method === "GET") {
-                const sosRequests = await dbAll("SELECT * FROM sosRequests ORDER BY submittedAt DESC");
-                const rescueTeams = await dbAll("SELECT * FROM rescueTeams");
-                const alerts = await dbAll("SELECT * FROM alerts ORDER BY timestamp DESC");
-                const sosMapped = sosRequests.map(s => ({...s, hasInfant: !!s.hasInfant, hasElderly: !!s.hasElderly, hasMedical: !!s.hasMedical}));
+                const dbSos = await dbAll("SELECT * FROM sosRequests ORDER BY submittedAt DESC");
+                const dbTeams = await dbAll("SELECT * FROM rescueTeams");
+                const dbAlerts = await dbAll("SELECT * FROM alerts ORDER BY timestamp DESC");
                 
-                // Keep backward compatibility
+                const activeSos = dbSos.length > 0 ? dbSos : inMemorySOS;
+                const activeTeams = dbTeams.length > 0 ? dbTeams : inMemoryTeams;
+                const activeAlerts = dbAlerts.length > 0 ? dbAlerts : inMemoryAlerts;
+
+                const sosMapped = activeSos.map(s => ({...s, hasInfant: !!s.hasInfant, hasElderly: !!s.hasElderly, hasMedical: !!s.hasMedical}));
+                
                 const fullState = {
                     ...DB,
                     sosRequests: sosMapped,
-                    rescueTeams,
-                    alerts
+                    rescueTeams: activeTeams,
+                    alerts: activeAlerts
                 };
                 return res.writeHead(200), res.end(JSON.stringify(fullState));
             }
 
-            
             if (pathname === '/api/admin/alert' && req.method === 'POST') {
                 const data = await getBody();
-                io.emit('emergency_broadcast', { type: data.type, message: data.message, title: data.title, timestamp: Date.now() });
+                const newAlert = {
+                    id: `ALT-BRD-${Date.now().toString().slice(-4)}`,
+                    title: data.title || "RED CRITICAL: NOWCAST FLASH FLOOD",
+                    severity: data.type || "CRITICAL",
+                    area: "All Sectors (NDRF Emergency Broadcast)",
+                    message: data.message || "Immediate mandatory evacuation along designated high-ridge routes.",
+                    targetCount: 184,
+                    timestamp: new Date().toISOString(),
+                    polygon: "[]"
+                };
+                
+                await dbRun("INSERT INTO alerts VALUES (?, ?, ?, ?, ?, ?, ?, ?)", Object.values(newAlert));
+                inMemoryAlerts.unshift(newAlert);
+                
+                io.emit('emergency_broadcast', { 
+                    ...newAlert, 
+                    type: newAlert.severity, 
+                    message: newAlert.message, 
+                    title: newAlert.title, 
+                    timestamp: Date.now() 
+                });
+                
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ success: true }));
+                return res.end(JSON.stringify({ success: true, alert: newAlert }));
             }
 
             if (pathname === "/api/sos" && req.method === "POST") {
@@ -236,14 +260,14 @@ const server = http.createServer(async (req, res) => {
                     phone: data.phone || "+91 98765 00000",
                     emergencyType: data.emergencyType || "Flash Flood",
                     peopleCount: parseInt(data.peopleCount) || 1,
-                    lat: data.lat || 30.0855,
-                    lng: data.lng || 78.2705,
-                    locationDesc: data.locationDesc || "Unknown",
+                    lat: parseFloat(data.lat) || 17.4207,
+                    lng: parseFloat(data.lng) || 78.3508,
+                    locationDesc: data.locationDesc || "Urban Lowland Corridor",
                     hasInfant: data.hasInfant ? 1 : 0,
                     hasElderly: data.hasElderly ? 1 : 0,
                     hasMedical: data.hasMedical ? 1 : 0,
                     message: data.message || "Rescue extraction requested",
-                    status: "NEW", // For triage board: NEW, TRIAGED, DISPATCHED, IN_PROGRESS, RESOLVED
+                    status: "NEW",
                     priority: triageScore >= 80 ? "CRITICAL" : (triageScore >= 60 ? "HIGH" : "MEDIUM"),
                     triageScore: triageScore,
                     assignedTeam: "Pending",
@@ -257,6 +281,8 @@ const server = http.createServer(async (req, res) => {
                 newSOS.hasElderly = !!newSOS.hasElderly;
                 newSOS.hasMedical = !!newSOS.hasMedical;
 
+                inMemorySOS.unshift(newSOS);
+
                 io.emit("new_sos", newSOS);
                 return res.writeHead(201), res.end(JSON.stringify({ success: true, entry: newSOS }));
             }
@@ -266,20 +292,37 @@ const server = http.createServer(async (req, res) => {
                 const id = pathname.split("/")[3];
                 const data = await getBody();
                 const current = await dbGet("SELECT * FROM sosRequests WHERE id = ?", [id]);
-                if (!current) return res.writeHead(404), res.end(JSON.stringify({ error: "Not found" }));
                 
-                const status = data.status || current.status;
-                const assignedTeam = data.assignedTeam || current.assignedTeam;
+                const status = data.status || (current ? current.status : "DISPATCHED");
+                const assignedTeam = data.assignedTeam || (current ? current.assignedTeam : "NDRF Bravo Alpha (Motor Boat #4)");
                 
-                await dbRun("UPDATE sosRequests SET status = ?, assignedTeam = ? WHERE id = ?", [status, assignedTeam, id]);
+                if (current) {
+                    await dbRun("UPDATE sosRequests SET status = ?, assignedTeam = ? WHERE id = ?", [status, assignedTeam, id]);
+                }
                 
-                const updated = await dbGet("SELECT * FROM sosRequests WHERE id = ?", [id]);
-                updated.hasInfant = !!updated.hasInfant;
-                updated.hasElderly = !!updated.hasElderly;
-                updated.hasMedical = !!updated.hasMedical;
-                
-                io.emit("incident_updated", updated);
-                return res.writeHead(200), res.end(JSON.stringify({ success: true, entry: updated }));
+                let updated = await dbGet("SELECT * FROM sosRequests WHERE id = ?", [id]);
+                if (!updated) {
+                    const memIdx = inMemorySOS.findIndex(s => s.id === id);
+                    if (memIdx > -1) {
+                        inMemorySOS[memIdx].status = status;
+                        inMemorySOS[memIdx].assignedTeam = assignedTeam;
+                        updated = inMemorySOS[memIdx];
+                    }
+                }
+
+                if (updated) {
+                    updated.hasInfant = !!updated.hasInfant;
+                    updated.hasElderly = !!updated.hasElderly;
+                    updated.hasMedical = !!updated.hasMedical;
+                    
+                    const memIdx = inMemorySOS.findIndex(s => s.id === id);
+                    if (memIdx > -1) inMemorySOS[memIdx] = updated;
+
+                    io.emit("incident_updated", updated);
+                    return res.writeHead(200), res.end(JSON.stringify({ success: true, entry: updated }));
+                }
+
+                return res.writeHead(404), res.end(JSON.stringify({ error: "Incident not found" }));
             }
 
             if (pathname === "/api/alerts/mass" && req.method === "POST") {
@@ -322,15 +365,30 @@ const server = http.createServer(async (req, res) => {
 
     // Static file serving
     let cleanPath = pathname;
-    if (cleanPath === "/dashboard" || cleanPath === "/dashboard/") {
+    if (cleanPath === "/dashboard") {
+        res.writeHead(301, { "Location": "/dashboard/" });
+        return res.end();
+    }
+    if (cleanPath === "/dashboard/") {
         cleanPath = "/dashboard/index.html";
+    }
+    if (cleanPath === "/dashboard.js") {
+        cleanPath = "/dashboard/dashboard.js";
     }
 
     let filePath = path.join(PUBLIC_DIR, cleanPath === "/" ? "index.html" : cleanPath);
     if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
         filePath = path.join(filePath, "index.html");
     }
-    if (!fs.existsSync(filePath)) filePath = path.join(PUBLIC_DIR, "index.html");
+    if (!fs.existsSync(filePath)) {
+        // Check if inside dashboard dir
+        const dashboardFilePath = path.join(PUBLIC_DIR, "dashboard", cleanPath);
+        if (fs.existsSync(dashboardFilePath) && !fs.statSync(dashboardFilePath).isDirectory()) {
+            filePath = dashboardFilePath;
+        } else {
+            filePath = path.join(PUBLIC_DIR, "index.html");
+        }
+    }
 
     const ext = path.extname(filePath).toLowerCase();
     const mimeTypes = { 
