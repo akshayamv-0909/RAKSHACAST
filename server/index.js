@@ -69,8 +69,20 @@ if (db) {
         db.get("SELECT COUNT(*) AS count FROM rescueTeams", (err, row) => {
             if (!err && row && row.count === 0) {
                 const stmt = db.prepare("INSERT INTO rescueTeams VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                stmt.run("TM-01", "NDRF Bravo Alpha (Motor Boat #4)", "Inflatable Rescue Boat (IRB)", 6, "DISPATCHED", "Responding to SOS-9081", 30.0870, 78.2690, JSON.stringify(["40HP OBM Engine", "Oxygen Cylinder"]));
-                stmt.run("TM-02", "SDRF Amphibious Unit 2", "All-Terrain Amphibious Vehicle", 4, "AVAILABLE", "Patrolling High Ridge", 30.0910, 78.2630, JSON.stringify(["Winch Cable", "Life Jackets"]));
+                stmt.run("TM-01", "NDRF Bravo Alpha (Motor Boat #4)", "Inflatable Rescue Boat (IRB)", 6, "DISPATCHED", "Responding to SOS-9081", 17.4220, 78.3510, JSON.stringify(["40HP OBM Engine", "Oxygen Cylinder"]));
+                stmt.run("TM-02", "SDRF Amphibious Unit 2", "All-Terrain Amphibious Vehicle", 4, "AVAILABLE", "Patrolling High Ridge", 17.4190, 78.3490, JSON.stringify(["Winch Cable", "Life Jackets"]));
+                stmt.finalize();
+            }
+        });
+
+        // Seed SOS Requests if empty
+        db.get("SELECT COUNT(*) AS count FROM sosRequests", (err, row) => {
+            if (!err && row && row.count === 0) {
+                const stmt = db.prepare("INSERT INTO sosRequests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                stmt.run("SOS-9081", "Rajesh Sharma (Elderly + Infant)", "+91 98765 43210", "Flash Flood - Rapid Inundation", 5, 17.4250, 78.3550, "Madhapur Low Ridge, Choke Point B", 1, 1, 1, "Water reached 1st floor balcony. Need boat evacuation immediately.", "NEW", "CRITICAL", 92, "Pending", new Date(Date.now() - 4 * 60000).toISOString());
+                stmt.run("SOS-8834", "Pooja Varma", "+91 98111 22334", "Urban Waterlogging", 3, 17.4180, 78.3450, "Gachibowli Flyover Underpass", 0, 1, 0, "Car submerged up to windshield. 3 adults stranded on roof.", "NEW", "HIGH", 76, "Pending", new Date(Date.now() - 12 * 60000).toISOString());
+                stmt.run("SOS-7612", "Sunil Reddy (Dialysis Patient)", "+91 98450 11223", "Medical Emergency / Power Outage", 2, 17.4310, 78.3610, "Kondapur Sector 4", 0, 0, 1, "Oxygen concentrator running on backup battery. Medical transport required.", "NEW", "CRITICAL", 88, "Pending", new Date(Date.now() - 19 * 60000).toISOString());
+                stmt.run("SOS-6520", "Amit Patel", "+91 97234 56789", "Structural Collapse Risk", 4, 17.4120, 78.3380, "Hitec City Zone 2", 1, 0, 0, "Boundary wall collapsed, flood water entering basement.", "NEW", "HIGH", 68, "Pending", new Date(Date.now() - 35 * 60000).toISOString());
                 stmt.finalize();
             }
         });
@@ -78,10 +90,15 @@ if (db) {
 }
 
 // Fallback in-memory stores
-const inMemorySOS = [];
+const inMemorySOS = [
+    { id: "SOS-9081", userName: "Rajesh Sharma (Elderly + Infant)", phone: "+91 98765 43210", emergencyType: "Flash Flood - Rapid Inundation", peopleCount: 5, lat: 17.4250, lng: 78.3550, locationDesc: "Madhapur Low Ridge, Choke Point B", hasInfant: 1, hasElderly: 1, hasMedical: 1, message: "Water reached 1st floor balcony. Need boat evacuation immediately.", status: "NEW", priority: "CRITICAL", triageScore: 92, assignedTeam: "Pending", submittedAt: new Date(Date.now() - 4 * 60000).toISOString() },
+    { id: "SOS-8834", userName: "Pooja Varma", phone: "+91 98111 22334", emergencyType: "Urban Waterlogging", peopleCount: 3, lat: 17.4180, lng: 78.3450, locationDesc: "Gachibowli Flyover Underpass", hasInfant: 0, hasElderly: 1, hasMedical: 0, message: "Car submerged up to windshield. 3 adults stranded on roof.", status: "NEW", priority: "HIGH", triageScore: 76, assignedTeam: "Pending", submittedAt: new Date(Date.now() - 12 * 60000).toISOString() },
+    { id: "SOS-7612", userName: "Sunil Reddy (Dialysis Patient)", phone: "+91 98450 11223", emergencyType: "Medical Emergency / Power Outage", peopleCount: 2, lat: 17.4310, lng: 78.3610, locationDesc: "Kondapur Sector 4", hasInfant: 0, hasElderly: 0, hasMedical: 1, message: "Oxygen concentrator running on backup battery. Medical transport required.", status: "NEW", priority: "CRITICAL", triageScore: 88, assignedTeam: "Pending", submittedAt: new Date(Date.now() - 19 * 60000).toISOString() },
+    { id: "SOS-6520", userName: "Amit Patel", phone: "+91 97234 56789", emergencyType: "Structural Collapse Risk", peopleCount: 4, lat: 17.4120, lng: 78.3380, locationDesc: "Hitec City Zone 2", hasInfant: 1, hasElderly: 0, hasMedical: 0, message: "Boundary wall collapsed, flood water entering basement.", status: "NEW", priority: "HIGH", triageScore: 68, assignedTeam: "Pending", submittedAt: new Date(Date.now() - 35 * 60000).toISOString() }
+];
 const inMemoryTeams = [
-    { id: "TM-01", name: "NDRF Bravo Alpha (Motor Boat #4)", type: "Inflatable Rescue Boat (IRB)", personnel: 6, status: "DISPATCHED", currentTask: "Responding to SOS-9081", lat: 30.0870, lng: 78.2690, equipment: JSON.stringify(["40HP OBM Engine", "Oxygen Cylinder"]) },
-    { id: "TM-02", name: "SDRF Amphibious Unit 2", type: "All-Terrain Amphibious Vehicle", personnel: 4, status: "AVAILABLE", currentTask: "Patrolling High Ridge", lat: 30.0910, lng: 78.2630, equipment: JSON.stringify(["Winch Cable", "Life Jackets"]) }
+    { id: "TM-01", name: "NDRF Bravo Alpha (Motor Boat #4)", type: "Inflatable Rescue Boat (IRB)", personnel: 6, status: "DISPATCHED", currentTask: "Responding to SOS-9081", lat: 17.4220, lng: 78.3510, equipment: JSON.stringify(["40HP OBM Engine", "Oxygen Cylinder"]) },
+    { id: "TM-02", name: "SDRF Amphibious Unit 2", type: "All-Terrain Amphibious Vehicle", personnel: 4, status: "AVAILABLE", currentTask: "Patrolling High Ridge", lat: 17.4190, lng: 78.3490, equipment: JSON.stringify(["Winch Cable", "Life Jackets"]) }
 ];
 const inMemoryAlerts = [];
 

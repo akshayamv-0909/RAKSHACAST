@@ -9,29 +9,38 @@ const STATE = {
 
 const socket = io();
 
-// UI Elements
-const connIndicator = document.getElementById("conn-indicator");
-const connText = document.getElementById("conn-text");
-const statActive = document.getElementById("stat-active");
-const statTeams = document.getElementById("stat-teams");
-const alertsFeed = document.getElementById("alerts-feed");
-const incidentDetailsPanel = document.getElementById("incident-details");
-const inboxList = document.getElementById("inbox-list");
-const bulkActionBar = document.getElementById("bulk-action-bar");
-const selectedCountEl = document.getElementById("selected-count");
-const bulkTeamSelect = document.getElementById("bulk-team-select");
+// Safe element lookup
+const getEl = id => document.getElementById(id);
+const connIndicator = getEl("conn-indicator");
+const connText = getEl("conn-text");
+const statActive = getEl("stat-active");
+const statTeams = getEl("stat-teams");
+const alertsFeed = getEl("alerts-feed") || getEl("alerts-list");
+const incidentDetailsPanel = getEl("incident-details");
+const inboxList = getEl("inbox-list");
+const bulkActionBar = getEl("bulk-action-bar");
+const selectedCountEl = getEl("selected-count");
+const bulkTeamSelect = getEl("bulk-team-select");
 
 // Connection Handling
 socket.on("connect", () => {
-    connIndicator.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]";
-    connText.className = "text-emerald-400";
-    connText.innerText = "LIVE";
+    const ind = getEl("conn-indicator");
+    const txt = getEl("conn-text");
+    if (ind) ind.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]";
+    if (txt) {
+        txt.className = "text-emerald-400";
+        txt.innerText = "LIVE";
+    }
     pushAlert("Connection Secured", "Live telemetry stream active.", "success");
 });
 socket.on("disconnect", () => {
-    connIndicator.className = "w-2 h-2 rounded-full bg-red-500";
-    connText.className = "text-red-400";
-    connText.innerText = "OFFLINE";
+    const ind = getEl("conn-indicator");
+    const txt = getEl("conn-text");
+    if (ind) ind.className = "w-2 h-2 rounded-full bg-red-500";
+    if (txt) {
+        txt.className = "text-red-400";
+        txt.innerText = "OFFLINE";
+    }
     pushAlert("Connection Lost", "Attempting to reconnect...", "error");
 });
 
@@ -64,19 +73,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function initMap() {
-    STATE.map = L.map('map', { zoomControl: false }).setView([17.4207, 78.3508], 12);
+    STATE.map = L.map('map', { zoomControl: false }).setView([17.4207, 78.3508], 13);
     L.control.zoom({ position: 'bottomright' }).addTo(STATE.map);
+    
+    // High-contrast Dark GIS Tactical Tile Layer (CartoDB Dark Matter)
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; CartoDB &copy; OpenStreetMap',
+        maxZoom: 19
+    });
     
     const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     });
     
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        attribution: 'Tiles &copy; Esri'
     });
     
-    // Add default street layer
-    satelliteLayer.addTo(STATE.map);
+    // Add default tactical dark layer
+    darkLayer.addTo(STATE.map);
+    
+    // Auto-invalidate size to guarantee map expands to full container
+    setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 150);
+    setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 600);
+    setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 1500);
+    window.addEventListener('resize', () => { if (STATE.map) STATE.map.invalidateSize(); });
     
     // Initialize Weather Radar Group
     const radarLayer = L.layerGroup();
@@ -96,8 +117,9 @@ function initMap() {
         .catch(e => console.error("RainViewer load failed:", e));
 
     const baseMaps = {
+        "ArcGIS Tactical Dark": darkLayer,
         "ISRO Bhuvan / Street View": streetLayer,
-        "INSAT / CartoDEM (Satellite)": satelliteLayer
+        "INSAT / Satellite Imagery": satelliteLayer
     };
 
     const overlayMaps = {
@@ -105,7 +127,6 @@ function initMap() {
     };
 
     L.control.layers(baseMaps, overlayMaps, {position: 'topright'}).addTo(STATE.map);
-    
 
     drawHazardZones();
 
@@ -127,13 +148,13 @@ function initMap() {
 
 function drawHazardZones() {
     const center = [17.4207, 78.3508];
-    L.circle([center[0] - 0.005, center[1] - 0.005], { radius: 1200, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.1, dashArray: '5, 5' }).addTo(STATE.map);
-    L.circle([center[0] + 0.002, center[1] + 0.006], { radius: 1500, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.1, weight: 2 }).addTo(STATE.map);
+    L.circle([center[0] - 0.005, center[1] - 0.005], { radius: 1200, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, dashArray: '5, 5' }).addTo(STATE.map);
+    L.circle([center[0] + 0.002, center[1] + 0.006], { radius: 1500, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.15, weight: 2 }).addTo(STATE.map);
     L.circle([center[0] + 0.006, center[1] - 0.002], { radius: 800, color: '#a855f7', fillColor: '#a855f7', fillOpacity: 0.2 }).addTo(STATE.map);
     L.circle([center[0] - 0.004, center[1] + 0.008], { radius: 600, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(STATE.map);
     
-    const iconHtml = `<div style="background:#22c55e; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 10px rgba(0,0,0,0.3)"></div>`;
-    L.marker(center, { icon: L.divIcon({ html: iconHtml, className: '' }) }).addTo(STATE.map).bindTooltip("Hyderabad Evacuation Zone", { permanent: true, direction: "bottom" });
+    const iconHtml = `<div style="background:#22c55e; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 10px rgba(0,0,0,0.5)"></div>`;
+    L.marker(center, { icon: L.divIcon({ html: iconHtml, className: '' }) }).addTo(STATE.map).bindTooltip("Command Post - Sector 1", { permanent: true, direction: "bottom" });
 }
 
 window.createMassAlert = function() {
@@ -167,16 +188,22 @@ async function fetchState() {
             renderAll();
             
             // Populate bulk select
-            bulkTeamSelect.innerHTML = '<option value="">Select Rescue Unit...</option>';
-            STATE.rescueTeams.forEach(t => {
-                bulkTeamSelect.innerHTML += `<option value="${t.name}">${t.name} (${t.status})</option>`;
-            });
+            if (bulkTeamSelect) {
+                bulkTeamSelect.innerHTML = '<option value="">Select Rescue Unit...</option>';
+                STATE.rescueTeams.forEach(t => {
+                    bulkTeamSelect.innerHTML += `<option value="${t.name}">${t.name} (${t.status})</option>`;
+                });
+            }
             
             if(data.telemetry) {
-                document.getElementById('w-temp').innerText = data.telemetry.temperature + '°C';
-                document.getElementById('w-rain').innerText = data.telemetry.rainfall + ' mm/h';
-                document.getElementById('w-hum').innerText = data.telemetry.humidity + '%';
-                document.getElementById('w-wind').innerText = data.telemetry.windSpeed + ' km/h';
+                const elTemp = getEl('w-temp');
+                const elRain = getEl('w-rain');
+                const elHum = getEl('w-hum');
+                const elWind = getEl('w-wind');
+                if (elTemp) elTemp.innerText = data.telemetry.temperature + '°C';
+                if (elRain) elRain.innerText = data.telemetry.rainfall + ' mm/h';
+                if (elHum) elHum.innerText = data.telemetry.humidity + '%';
+                if (elWind) elWind.innerText = data.telemetry.windSpeed + ' km/h';
             }
         }
     } catch(e) { console.error(e); }
@@ -290,6 +317,7 @@ window.toggleSelection = function(e, id) {
 }
 
 function updateBulkActionBar() {
+    if (!bulkActionBar || !selectedCountEl) return;
     if (STATE.selectedIds.size > 0) {
         bulkActionBar.classList.remove('hidden');
         selectedCountEl.innerText = STATE.selectedIds.size;
@@ -455,8 +483,8 @@ async function updateStats() {
         const res = await fetch("/api/statistics");
         if (res.ok) {
             const s = await res.json();
-            statActive.innerText = s.activeSOS;
-            statTeams.innerText = s.teamsDeployed;
+            if (statActive) statActive.innerText = s.activeSOS;
+            if (statTeams) statTeams.innerText = s.teamsDeployed;
             
             const overSos = document.getElementById('overview-stat-sos');
             const overTeams = document.getElementById('overview-stat-teams');
@@ -467,22 +495,24 @@ async function updateStats() {
 }
 
 function pushAlert(title, msg, type = "info") {
+    const feed = getEl("alerts-feed") || getEl("alerts-list");
+    if (!feed) return;
     const el = document.createElement("div");
     let colorClass = "blue";
     if(type === "error") colorClass = "red";
     if(type === "success") colorClass = "emerald";
     if(type === "warning") colorClass = "amber";
     
-    el.className = `bg-${colorClass}-50 border-l-4 border-${colorClass}-500 p-4 rounded shadow-sm`;
+    el.className = `p-3 bg-[#181C21] border-l-4 border-${colorClass}-500 rounded text-xs`;
     el.innerHTML = `
         <div class="flex justify-between items-start">
-            <h4 class="font-bold text-${colorClass}-900">${title}</h4>
-            <span class="text-[10px] text-${colorClass}-500 font-mono">${new Date().toLocaleTimeString()}</span>
+            <h4 class="font-bold text-[#E8EAED]">${title}</h4>
+            <span class="text-[10px] text-[#9AA1AA] font-mono">${new Date().toLocaleTimeString()}</span>
         </div>
-        <p class="text-sm text-${colorClass}-800 mt-1">${msg}</p>
+        <p class="text-[11px] text-[#9AA1AA] mt-1">${msg}</p>
     `;
-    alertsFeed.prepend(el);
-    if(alertsFeed.children.length > 20) alertsFeed.removeChild(alertsFeed.lastChild);
+    feed.prepend(el);
+    if(feed.children.length > 20) feed.removeChild(feed.lastChild);
 }
 
 // Socket Listeners
