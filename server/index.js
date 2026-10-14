@@ -304,13 +304,30 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Static file serving
-    let filePath = path.join(PUBLIC_DIR, pathname === "/" ? "index.html" : pathname);
+    let cleanPath = pathname;
+    if (cleanPath === "/dashboard" || cleanPath === "/dashboard/") {
+        cleanPath = "/dashboard/index.html";
+    }
+
+    let filePath = path.join(PUBLIC_DIR, cleanPath === "/" ? "index.html" : cleanPath);
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+        filePath = path.join(filePath, "index.html");
+    }
     if (!fs.existsSync(filePath)) filePath = path.join(PUBLIC_DIR, "index.html");
+
     const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png" };
+    const mimeTypes = { 
+        ".html": "text/html", 
+        ".js": "text/javascript", 
+        ".css": "text/css", 
+        ".json": "application/json", 
+        ".png": "image/png",
+        ".svg": "image/svg+xml",
+        ".ico": "image/x-icon"
+    };
 
     fs.readFile(filePath, (err, content) => {
-        if (err) return res.writeHead(500), res.end("Error");
+        if (err) return res.writeHead(500), res.end("Error loading resource");
         res.writeHead(200, { "Content-Type": mimeTypes[ext] || "application/octet-stream" });
         res.end(content);
     });
