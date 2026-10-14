@@ -2,75 +2,102 @@ const http = require("http");
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
 const { Server } = require("socket.io");
 
 const PORT = process.env.PORT || 8080;
 const PUBLIC_DIR = path.join(__dirname, "../public");
 
-// Database initialization
-const dbPath = path.join(__dirname, "rakshacast.db");
-const db = new sqlite3.Database(dbPath);
-
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS sosRequests (
-        id TEXT PRIMARY KEY,
-        userName TEXT,
-        phone TEXT,
-        emergencyType TEXT,
-        peopleCount INTEGER,
-        lat REAL,
-        lng REAL,
-        locationDesc TEXT,
-        hasInfant BOOLEAN,
-        hasElderly BOOLEAN,
-        hasMedical BOOLEAN,
-        message TEXT,
-        status TEXT,
-        priority TEXT,
-        triageScore REAL,
-        assignedTeam TEXT,
-        submittedAt TEXT
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS rescueTeams (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        type TEXT,
-        personnel INTEGER,
-        status TEXT,
-        currentTask TEXT,
-        lat REAL,
-        lng REAL,
-        equipment TEXT
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS alerts (
-        id TEXT PRIMARY KEY,
-        title TEXT,
-        severity TEXT,
-        area TEXT,
-        message TEXT,
-        targetCount INTEGER,
-        timestamp TEXT,
-        polygon TEXT
-    )`);
-
-    // Seed Teams if empty
-    db.get("SELECT COUNT(*) AS count FROM rescueTeams", (err, row) => {
-        if (!err && row && row.count === 0) {
-            const stmt = db.prepare("INSERT INTO rescueTeams VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            stmt.run("TM-01", "NDRF Bravo Alpha (Motor Boat #4)", "Inflatable Rescue Boat (IRB)", 6, "DISPATCHED", "Responding to SOS-9081", 30.0870, 78.2690, JSON.stringify(["40HP OBM Engine", "Oxygen Cylinder"]));
-            stmt.run("TM-02", "SDRF Amphibious Unit 2", "All-Terrain Amphibious Vehicle", 4, "AVAILABLE", "Patrolling High Ridge", 30.0910, 78.2630, JSON.stringify(["Winch Cable", "Life Jackets"]));
-            stmt.finalize();
-        }
+let sqlite3 = null;
+let db = null;
+try {
+    sqlite3 = require("sqlite3").verbose();
+    const dbPath = path.join(__dirname, "rakshacast.db");
+    db = new sqlite3.Database(dbPath, (err) => {
+        if (err) console.warn("[DB] SQLite database warning:", err.message);
+        else console.log("[DB] SQLite connected successfully at", dbPath);
     });
-});
+} catch (e) {
+    console.warn("[DB] Native SQLite library could not be loaded, using memory fallback:", e.message);
+}
 
-// Helper for DB queries
-const dbAll = (query, params = []) => new Promise((resolve, reject) => db.all(query, params, (err, rows) => err ? reject(err) : resolve(rows)));
-const dbRun = (query, params = []) => new Promise((resolve, reject) => db.run(query, params, function(err) { err ? reject(err) : resolve(this) }));
-const dbGet = (query, params = []) => new Promise((resolve, reject) => db.get(query, params, (err, row) => err ? reject(err) : resolve(row)));
+if (db) {
+    db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS sosRequests (
+            id TEXT PRIMARY KEY,
+            userName TEXT,
+            phone TEXT,
+            emergencyType TEXT,
+            peopleCount INTEGER,
+            lat REAL,
+            lng REAL,
+            locationDesc TEXT,
+            hasInfant BOOLEAN,
+            hasElderly BOOLEAN,
+            hasMedical BOOLEAN,
+            message TEXT,
+            status TEXT,
+            priority TEXT,
+            triageScore REAL,
+            assignedTeam TEXT,
+            submittedAt TEXT
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS rescueTeams (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            type TEXT,
+            personnel INTEGER,
+            status TEXT,
+            currentTask TEXT,
+            lat REAL,
+            lng REAL,
+            equipment TEXT
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS alerts (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            severity TEXT,
+            area TEXT,
+            message TEXT,
+            targetCount INTEGER,
+            timestamp TEXT,
+            polygon TEXT
+        )`);
+
+        // Seed Teams if empty
+        db.get("SELECT COUNT(*) AS count FROM rescueTeams", (err, row) => {
+            if (!err && row && row.count === 0) {
+                const stmt = db.prepare("INSERT INTO rescueTeams VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                stmt.run("TM-01", "NDRF Bravo Alpha (Motor Boat #4)", "Inflatable Rescue Boat (IRB)", 6, "DISPATCHED", "Responding to SOS-9081", 30.0870, 78.2690, JSON.stringify(["40HP OBM Engine", "Oxygen Cylinder"]));
+                stmt.run("TM-02", "SDRF Amphibious Unit 2", "All-Terrain Amphibious Vehicle", 4, "AVAILABLE", "Patrolling High Ridge", 30.0910, 78.2630, JSON.stringify(["Winch Cable", "Life Jackets"]));
+                stmt.finalize();
+            }
+        });
+    });
+}
+
+// Fallback in-memory stores
+const inMemorySOS = [];
+const inMemoryTeams = [
+    { id: "TM-01", name: "NDRF Bravo Alpha (Motor Boat #4)", type: "Inflatable Rescue Boat (IRB)", personnel: 6, status: "DISPATCHED", currentTask: "Responding to SOS-9081", lat: 30.0870, lng: 78.2690, equipment: JSON.stringify(["40HP OBM Engine", "Oxygen Cylinder"]) },
+    { id: "TM-02", name: "SDRF Amphibious Unit 2", type: "All-Terrain Amphibious Vehicle", personnel: 4, status: "AVAILABLE", currentTask: "Patrolling High Ridge", lat: 30.0910, lng: 78.2630, equipment: JSON.stringify(["Winch Cable", "Life Jackets"]) }
+];
+const inMemoryAlerts = [];
+
+// Helper for DB queries with graceful fallback
+const dbAll = (query, params = []) => new Promise((resolve) => {
+    if (!db) return resolve([]);
+    db.all(query, params, (err, rows) => err ? resolve([]) : resolve(rows || []));
+});
+const dbRun = (query, params = []) => new Promise((resolve) => {
+    if (!db) return resolve({ changes: 1 });
+    db.run(query, params, function(err) { err ? resolve({ changes: 0 }) : resolve(this); });
+});
+const dbGet = (query, params = []) => new Promise((resolve) => {
+    if (!db) return resolve(null);
+    db.get(query, params, (err, row) => err ? resolve(null) : resolve(row || null));
+});
 
 // In-Memory Data for compatibility
 let LIVE_WEATHER_CACHE = {

@@ -1,5 +1,2 @@
-import { registerRootComponent } from 'expo';
-import App from './App';
-
-registerRootComponent(App);
-
+// Entry point for Node.js cloud hosting environments (Render, Railway, Heroku)
+require("./server/index.js");

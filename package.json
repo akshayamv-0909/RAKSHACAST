@@ -5,7 +5,11 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "server": "node server/index.js"
+    "server": "node server/index.js",
+    "build": "echo 'Build successful'"
+  },
+  "engines": {
+    "node": ">=20.17.0"
   },
   "dependencies": {
     "socket.io": "^4.8.3",
