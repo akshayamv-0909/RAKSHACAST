@@ -70,94 +70,115 @@ window.switchPage = function(pageId) {
     }
 };
 
-// Init
-document.addEventListener("DOMContentLoaded", async () => {
+// Init & Resilient Boot
+function bootDashboard() {
+    renderSmartInbox(); // Immediate render of default incidents so left panel is never empty!
     initMap();
-    await fetchState();
+    fetchState();
     setInterval(updateStats, 5000);
-});
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootDashboard);
+} else {
+    bootDashboard();
+}
 
 function initMap() {
     const mapContainer = getEl('map');
     if (!mapContainer) return;
 
+    if (typeof L === 'undefined') {
+        setTimeout(initMap, 150);
+        return;
+    }
+
     if (STATE.map) {
-        STATE.map.remove();
+        try { STATE.map.remove(); } catch(e) {}
         STATE.map = null;
     }
 
-    STATE.map = L.map('map', { zoomControl: false }).setView([17.4207, 78.3508], 13);
-    L.control.zoom({ position: 'bottomright' }).addTo(STATE.map);
-    
-    // High-visibility Base Tile Layers
-    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19
-    });
+    try {
+        STATE.map = L.map('map', { zoomControl: false }).setView([17.4207, 78.3508], 13);
+        L.control.zoom({ position: 'bottomright' }).addTo(STATE.map);
+        
+        // High-visibility Base Tile Layers
+        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        });
 
-    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; CartoDB &copy; OpenStreetMap',
-        maxZoom: 19
-    });
-    
-    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri'
-    });
-    
-    // Use streetLayer as default so roads, waterways, and landmarks are brightly visible
-    streetLayer.addTo(STATE.map);
-    
-    // Auto-invalidate size to guarantee map expands to full container
-    setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 150);
-    setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 600);
-    setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 1500);
-    window.addEventListener('resize', () => { if (STATE.map) STATE.map.invalidateSize(); });
-    
-    // Initialize Weather Radar Group
-    const radarLayer = L.layerGroup();
-    
-    fetch('https://api.rainviewer.com/public/weather-maps.json')
-        .then(res => res.json())
-        .then(data => {
-            if (data.radar && data.radar.past && data.radar.past.length > 0) {
-                const latestTs = data.radar.past[data.radar.past.length - 1].time;
-                L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${latestTs}/256/{z}/{x}/{y}/2/1_1.png`, {
-                    opacity: 0.7,
-                    zIndex: 1000
-                }).addTo(radarLayer);
-            }
-        })
-        .catch(e => console.warn("RainViewer load note:", e.message));
-
-    const baseMaps = {
-        "🗺️ ISRO Bhuvan / Street View": streetLayer,
-        "🛰️ INSAT / Satellite Imagery": satelliteLayer,
-        "🌑 Tactical Dark Matter": darkLayer
-    };
-
-    const overlayMaps = {
-        "🔴 LIVE Doppler Weather Radar": radarLayer
-    };
-
-    L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(STATE.map);
-
-    drawHazardZones();
-
-    if (typeof L.Control.Draw !== 'undefined') {
-        const drawnItems = new L.FeatureGroup();
-        STATE.map.addLayer(drawnItems);
-        STATE.drawControl = new L.Control.Draw({
-            edit: { featureGroup: drawnItems },
-            draw: { marker: false, polyline: false, circlemarker: false, circle: true, rectangle: true, polygon: true }
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CartoDB &copy; OpenStreetMap',
+            maxZoom: 19
         });
         
-        STATE.map.on(L.Draw.Event.CREATED, function (e) {
-            drawnItems.clearLayers();
-            const layer = e.layer;
-            drawnItems.addLayer(layer);
-            const geojson = layer.toGeoJSON();
-            sendMassAlert(geojson);
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri'
         });
+        
+        // Set OpenStreetMap street view as active so roads, waterways, and landmarks are brightly visible
+        streetLayer.addTo(STATE.map);
+        
+        // Auto-invalidate size to guarantee map expands to full container
+        setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 100);
+        setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 500);
+        setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 1200);
+        window.addEventListener('resize', () => { if (STATE.map) STATE.map.invalidateSize(); });
+        
+        // Initialize Weather Radar Group
+        const radarLayer = L.layerGroup();
+        
+        fetch('https://api.rainviewer.com/public/weather-maps.json')
+            .then(res => res.json())
+            .then(data => {
+                if (data.radar && data.radar.past && data.radar.past.length > 0) {
+                    const latestTs = data.radar.past[data.radar.past.length - 1].time;
+                    L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${latestTs}/256/{z}/{x}/{y}/2/1_1.png`, {
+                        opacity: 0.7,
+                        zIndex: 1000
+                    }).addTo(radarLayer);
+                }
+            })
+            .catch(e => console.warn("RainViewer load note:", e.message));
+
+        const baseMaps = {
+            "🗺️ ISRO Bhuvan / Street View": streetLayer,
+            "🛰️ INSAT / Satellite Imagery": satelliteLayer,
+            "🌑 Tactical Dark Matter": darkLayer
+        };
+
+        const overlayMaps = {
+            "🔴 LIVE Doppler Weather Radar": radarLayer
+        };
+
+        L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(STATE.map);
+
+        drawHazardZones();
+        renderMapMarkers();
+
+        if (typeof L.Control !== 'undefined' && typeof L.Control.Draw !== 'undefined') {
+            try {
+                const drawnItems = new L.FeatureGroup();
+                STATE.map.addLayer(drawnItems);
+                STATE.drawControl = new L.Control.Draw({
+                    edit: { featureGroup: drawnItems },
+                    draw: { marker: false, polyline: false, circlemarker: false, circle: true, rectangle: true, polygon: true }
+                });
+                
+                if (L.Draw && L.Draw.Event && L.Draw.Event.CREATED) {
+                    STATE.map.on(L.Draw.Event.CREATED, function (e) {
+                        drawnItems.clearLayers();
+                        const layer = e.layer;
+                        drawnItems.addLayer(layer);
+                        const geojson = layer.toGeoJSON();
+                        sendMassAlert(geojson);
+                    });
+                }
+            } catch(e) {}
+        }
+    } catch(err) {
+        console.error("Map initialization failed:", err);
     }
 }
 
@@ -236,7 +257,10 @@ function renderAll() {
 }
 
 function renderMapMarkers() {
-    Object.values(STATE.markers).forEach(m => STATE.map.removeLayer(m));
+    if (!STATE.map || typeof L === 'undefined') return;
+    Object.values(STATE.markers).forEach(m => {
+        try { STATE.map.removeLayer(m); } catch(e) {}
+    });
     STATE.markers = {};
 
     STATE.sosRequests.forEach(sos => {

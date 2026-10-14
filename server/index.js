@@ -403,6 +403,7 @@ const server = http.createServer(async (req, res) => {
 
     fs.readFile(filePath, (err, content) => {
         if (err) return res.writeHead(500), res.end("Error loading resource");
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         res.writeHead(200, { "Content-Type": mimeTypes[ext] || "application/octet-stream" });
         res.end(content);
     });
